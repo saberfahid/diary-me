@@ -1,0 +1,40 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+/* Custom styles for mobile responsiveness */
+body {
+  min-width: 0;
+}
+
+/* Make main containers responsive */
+.app-container, .backdrop-blur-lg, .rounded-2xl, .shadow-2xl {
+  max-width: 100vw;
+  width: 100%;
+  box-sizing: border-box;
+}
+
+/* Responsive padding and font sizes */
+@media (max-width: 640px) {
+  .app-container, .backdrop-blur-lg, .rounded-2xl, .shadow-2xl {
+    padding: 0.5rem !important;
+  }
+  h2, h1 {
+    font-size: 1.5rem !important;
+  }
+  .text-4xl, .text-5xl {
+    font-size: 2rem !important;
+  }
+  .px-8, .py-4 {
+    padding-left: 0.5rem !important;
+    padding-right: 0.5rem !important;
+    padding-top: 0.5rem !important;
+    padding-bottom: 0.5rem !important;
+  }
+}
+
+@media (max-width: 400px) {
+  h2, h1 {
+    font-size: 1.1rem !important;
+  }
+}
