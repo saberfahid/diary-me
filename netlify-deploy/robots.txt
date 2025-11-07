@@ -1,0 +1,24 @@
+User-agent: *
+Allow: /
+
+# Important pages for indexing
+Allow: /diary
+Allow: /calendar
+
+# Sitemap location
+Sitemap: https://delicate-duckanoo-0af0ad.netlify.app/sitemap.xml
+
+# Block admin/private areas (if any exist in future)
+Disallow: /admin/
+Disallow: /private/
+Disallow: /.netlify/
+
+# Allow all search engines
+User-agent: Googlebot
+Allow: /
+
+User-agent: Bingbot
+Allow: /
+
+User-agent: Slurp
+Allow: /

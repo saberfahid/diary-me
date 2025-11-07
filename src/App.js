@@ -3,10 +3,12 @@ import { supabase } from './supabaseClient';
 import Auth from './components/Auth';
 import DiaryEditor from './components/DiaryEditor';
 import DiaryList from './components/DiaryList';
+import LandingPage from './components/LandingPage';
 // ...existing code...
 function App() {
   const [refreshList, setRefreshList] = useState(0);
   const [showEditor, setShowEditor] = useState(false);
+  const [showAuth, setShowAuth] = useState(false);
   const [loggedIn, setLoggedIn] = useState(() => {
     return localStorage.getItem('diary_logged_in') === 'true';
   });
@@ -269,11 +271,16 @@ function App() {
       `}</style>
     </div>
   ) : (
-    <div className="min-h-screen flex items-center justify-center bg-gradient-to-br from-pink-100 via-blue-100 to-purple-100 py-4 px-2">
-  <div className="w-full" style={{maxWidth: '540px', margin: '0 auto'}}>
-        <Auth onAuth={() => setLoggedIn(true)} />
-      </div>
-    </div>
+    <>
+      <LandingPage onGetStarted={() => setShowAuth(true)} />
+      {showAuth && (
+        <div className="min-h-screen flex items-center justify-center bg-gradient-to-br from-pink-100 via-blue-100 to-purple-100 py-4 px-2">
+          <div className="w-full" style={{maxWidth: '540px', margin: '0 auto'}}>
+            <Auth onAuth={() => setLoggedIn(true)} />
+          </div>
+        </div>
+      )}
+    </>
   );
 }
 

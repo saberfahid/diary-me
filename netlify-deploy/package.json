@@ -1,0 +1,8 @@
+﻿{
+  "name": "diaryme-seo",
+  "version": "1.0.0",
+  "description": "SEO-optimized DiaryMe - Free online diary",
+  "main": "index.html",
+  "author": "DiaryMe Team",
+  "license": "MIT"
+}

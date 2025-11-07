@@ -1,8 +1,11 @@
 {
-  "name": "diaryme.top",
+  "name": "diaryme-digital-diary",
   "version": "1.0.0",
   "private": true,
   "homepage": ".",
+  "description": "Free secure online diary app with cross-device synchronization. Write your daily thoughts, memories, and life moments. Beautiful, private, and sync across all your devices.",
+  "keywords": ["diary", "journal", "digital diary", "online diary", "personal journal", "free diary app", "cross device sync", "memories", "daily writing", "secure diary"],
+  "author": "DiaryMe Team",
   "dependencies": {
     "@supabase/supabase-js": "^2.80.0",
     "@tailwindcss/typography": "^0.5.16",
