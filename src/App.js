@@ -24,6 +24,33 @@ function App() {
     localStorage.setItem('diary_logged_in', loggedIn ? 'true' : 'false');
   }, [loggedIn]);
 
+  // Supabase keepalive system
+  useEffect(() => {
+    if (!loggedIn) return;
+
+    const keepalive = async () => {
+      try {
+        // Perform lightweight database query to keep Supabase awake
+        const { data, error } = await supabase
+          .from('diary_entries')
+          .select('id')
+          .limit(1);
+        
+        console.log('Supabase keepalive successful:', { count: data?.length || 0 });
+      } catch (err) {
+        console.log('Supabase keepalive error:', err.message);
+      }
+    };
+
+    // Initial keepalive
+    keepalive();
+    
+    // Set up interval for keepalive (every 5 minutes when user is active)
+    const interval = setInterval(keepalive, 5 * 60 * 1000);
+    
+    return () => clearInterval(interval);
+  }, [loggedIn]);
+
   // Notification reminder system
   useEffect(() => {
     // Helper: get today's date string

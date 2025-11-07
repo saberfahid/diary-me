@@ -1,0 +1,61 @@
+name: Direct Supabase Keepalive
+
+on:
+  schedule:
+    # Run every 8 minutes to keep Supabase awake
+    - cron: '*/8 * * * *'
+  workflow_dispatch: # Allow manual triggering
+
+env:
+  # Add your Supabase credentials as GitHub Secrets
+  SUPABASE_URL: ${{ secrets.SUPABASE_URL }}
+  SUPABASE_ANON_KEY: ${{ secrets.SUPABASE_ANON_KEY }}
+
+jobs:
+  keepalive:
+    runs-on: ubuntu-latest
+    timeout-minutes: 3
+    
+    steps:
+    - name: Direct Supabase Ping
+      run: |
+        echo "🔄 Pinging Supabase directly at $(date -u)"
+        
+        # Direct API call to Supabase REST API
+        RESPONSE=$(curl -s -w "\n%{http_code}" \
+          -H "apikey: $SUPABASE_ANON_KEY" \
+          -H "Authorization: Bearer $SUPABASE_ANON_KEY" \
+          "$SUPABASE_URL/rest/v1/diary_entries?select=id&limit=1" \
+          || echo "curl_failed\n000")
+        
+        HTTP_CODE=$(echo "$RESPONSE" | tail -n1)
+        BODY=$(echo "$RESPONSE" | head -n -1)
+        
+        echo "📊 Supabase Response: $HTTP_CODE"
+        
+        if [ "$HTTP_CODE" = "200" ]; then
+          echo "✅ Supabase keepalive successful!"
+          echo "Response: $BODY"
+        else
+          echo "❌ Supabase ping failed with status $HTTP_CODE"
+          echo "Response: $BODY"
+        fi
+        
+        echo "🎯 Supabase database activity completed"
+
+    - name: Backup Health Check
+      run: |
+        echo "🏥 Performing backup health check..."
+        
+        # Also ping your main site to ensure it's responsive
+        SITE_RESPONSE=$(curl -s -w "%{http_code}" \
+          "https://bejewelled-salamander-08452f.netlify.app" \
+          -o /dev/null || echo "000")
+        
+        if [ "$SITE_RESPONSE" = "200" ]; then
+          echo "✅ Main site is responding"
+        else
+          echo "⚠️  Main site responded with: $SITE_RESPONSE"
+        fi
+        
+        echo "✅ Keepalive cycle completed at $(date -u)"
