@@ -1,33 +1,17 @@
-# Netlify configuration for DiaryMe app with Supabase keepalive# Netlify Configuration File
-
-# This tells Netlify where to find functions and how to build
+# Netlify configuration for DiaryMe app with Supabase keepalive
 
 [build]
+  publish = "build"
+  command = "npm run build"
 
-  # Build settings[build]
+[functions]
+  directory = "netlify/functions"
 
-  publish = "build"  publish = "build"
-
-  command = "npm run build"  functions = "netlify/functions"
-
-
-
-[functions][[redirects]]
-
-  # Function settings  from = "/*"
-
-  directory = "netlify/functions"  to = "/index.html"
-
-  status = 200
 # Redirects for Single Page Application (SPA)
 [[redirects]]
   from = "/*"
   to = "/index.html"
   status = 200
-
-# Netlify Edge Functions or Scheduled Functions
-# Note: Scheduled functions require Netlify Pro plan
-# Alternative: Use external cron services like cron-job.org or GitHub Actions
 
 # Headers for security and caching
 [[headers]]
