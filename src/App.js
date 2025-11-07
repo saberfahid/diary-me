@@ -270,17 +270,22 @@ function App() {
         }
       `}</style>
     </div>
+  ) : showAuth ? (
+    <div className="min-h-screen flex items-center justify-center bg-gradient-to-br from-pink-100 via-blue-100 to-purple-100 py-4 px-2 relative">
+      {/* Back to Landing Button */}
+      <button
+        onClick={() => setShowAuth(false)}
+        className="absolute top-4 left-4 bg-white/80 hover:bg-white text-gray-700 px-4 py-2 rounded-full font-bold shadow-lg transition-all duration-300 hover:shadow-xl transform hover:scale-105 font-cursive border-2 border-pink-200"
+      >
+        ← Back to Home
+      </button>
+      
+      <div className="w-full" style={{maxWidth: '540px', margin: '0 auto'}}>
+        <Auth onAuth={() => setLoggedIn(true)} />
+      </div>
+    </div>
   ) : (
-    <>
-      <LandingPage onGetStarted={() => setShowAuth(true)} />
-      {showAuth && (
-        <div className="min-h-screen flex items-center justify-center bg-gradient-to-br from-pink-100 via-blue-100 to-purple-100 py-4 px-2">
-          <div className="w-full" style={{maxWidth: '540px', margin: '0 auto'}}>
-            <Auth onAuth={() => setLoggedIn(true)} />
-          </div>
-        </div>
-      )}
-    </>
+    <LandingPage onGetStarted={() => setShowAuth(true)} />
   );
 }
 

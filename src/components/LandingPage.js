@@ -38,14 +38,7 @@ const LandingPage = ({ onGetStarted }) => {
           
           <div className="flex flex-col sm:flex-row gap-6 justify-center items-center mb-12">
             <button 
-              onClick={() => {
-                console.log('Button clicked!'); // Debug log
-                if (onGetStarted) {
-                  onGetStarted();
-                } else {
-                  console.error('onGetStarted function not provided');
-                }
-              }}
+              onClick={onGetStarted}
               className="group bg-gradient-to-r from-pink-400 via-purple-400 to-blue-400 hover:from-pink-500 hover:via-purple-500 hover:to-blue-500 text-white px-10 py-5 rounded-full text-xl font-bold transition-all duration-300 shadow-xl hover:shadow-2xl transform hover:scale-105 hover:-translate-y-1 font-cursive border-4 border-white"
             >
               <span className="flex items-center gap-3">
@@ -185,14 +178,7 @@ const LandingPage = ({ onGetStarted }) => {
             </h3>
             
             <button 
-              onClick={() => {
-                console.log('Final CTA button clicked!'); // Debug log
-                if (onGetStarted) {
-                  onGetStarted();
-                } else {
-                  console.error('onGetStarted function not provided in final CTA');
-                }
-              }}
+              onClick={onGetStarted}
               className="group bg-gradient-to-r from-pink-500 via-purple-500 to-blue-500 hover:from-pink-600 hover:via-purple-600 hover:to-blue-600 text-white px-16 py-8 rounded-full text-2xl font-bold transition-all duration-500 shadow-2xl hover:shadow-pink-300 transform hover:scale-110 hover:-translate-y-2 font-cursive border-4 border-white relative overflow-hidden"
             >
               {/* Sparkle effect */}
