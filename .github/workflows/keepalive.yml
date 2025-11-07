@@ -1,0 +1,41 @@
+name: Supabase Keepalive
+
+on:
+  schedule:
+    # Run every 10 minutes (GitHub Actions has a 5-minute minimum for scheduled workflows)
+    - cron: '*/10 * * * *'
+  workflow_dispatch: # Allow manual triggering for testing
+
+jobs:
+  keepalive:
+    runs-on: ubuntu-latest
+    
+    steps:
+    - name: Ping Keepalive Endpoint
+      run: |
+        echo "Pinging keepalive endpoint at $(date)"
+        
+        # Replace YOUR_NETLIFY_SITE with your actual Netlify site URL
+        KEEPALIVE_URL="https://YOUR_NETLIFY_SITE.netlify.app/.netlify/functions/keepalive"
+        
+        # Make the request and capture response
+        RESPONSE=$(curl -s -w "\n%{http_code}" "$KEEPALIVE_URL" || echo "curl_failed")
+        HTTP_CODE=$(echo "$RESPONSE" | tail -n1)
+        BODY=$(echo "$RESPONSE" | head -n -1)
+        
+        echo "HTTP Status: $HTTP_CODE"
+        echo "Response Body: $BODY"
+        
+        # Check if the request was successful
+        if [ "$HTTP_CODE" = "200" ]; then
+          echo "✅ Keepalive successful"
+        else
+          echo "❌ Keepalive failed with status $HTTP_CODE"
+          echo "Response: $BODY"
+          # Don't fail the workflow for keepalive failures - just log them
+        fi
+
+    - name: Log Completion
+      run: |
+        echo "Keepalive check completed at $(date)"
+        echo "Next scheduled run in 10 minutes"

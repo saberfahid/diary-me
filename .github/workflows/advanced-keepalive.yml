@@ -1,0 +1,86 @@
+name: Advanced Supabase Keepalive
+
+on:
+  schedule:
+    # Run every 8 minutes to ensure Supabase stays active
+    - cron: '*/8 * * * *'
+  workflow_dispatch:
+    inputs:
+      test_mode:
+        description: 'Run in test mode (single ping)'
+        required: false
+        default: 'false'
+
+env:
+  # Set your Netlify site URL here (without https://)
+  NETLIFY_SITE: YOUR_NETLIFY_SITE.netlify.app
+  MAX_RETRIES: 3
+  RETRY_DELAY: 30
+
+jobs:
+  keepalive:
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    
+    steps:
+    - name: Setup
+      run: |
+        echo "🚀 Starting Supabase keepalive at $(date -u)"
+        echo "Target: https://${{ env.NETLIFY_SITE }}/.netlify/functions/keepalive"
+        
+    - name: Ping Keepalive with Retries
+      run: |
+        KEEPALIVE_URL="https://${{ env.NETLIFY_SITE }}/.netlify/functions/keepalive"
+        SUCCESS=false
+        
+        for i in $(seq 1 ${{ env.MAX_RETRIES }}); do
+          echo "🔄 Attempt $i of ${{ env.MAX_RETRIES }}"
+          
+          # Make request with timeout and capture all output
+          RESPONSE=$(curl -s -m 30 -w "\n%{http_code}\n%{time_total}" "$KEEPALIVE_URL" 2>&1 || echo -e "curl_failed\n000\n0")
+          
+          # Parse response
+          HTTP_CODE=$(echo "$RESPONSE" | tail -n2 | head -n1)
+          TIME_TAKEN=$(echo "$RESPONSE" | tail -n1)
+          BODY=$(echo "$RESPONSE" | head -n -2)
+          
+          echo "📊 Status: $HTTP_CODE | Time: ${TIME_TAKEN}s"
+          
+          if [ "$HTTP_CODE" = "200" ]; then
+            echo "✅ Success! Response: $BODY"
+            SUCCESS=true
+            
+            # Parse JSON response if possible
+            if command -v jq >/dev/null 2>&1; then
+              echo "$BODY" | jq '.' 2>/dev/null || echo "Response is not valid JSON"
+            fi
+            break
+          else
+            echo "❌ Failed with status $HTTP_CODE"
+            echo "Response: $BODY"
+            
+            if [ $i -lt ${{ env.MAX_RETRIES }} ]; then
+              echo "⏳ Waiting ${{ env.RETRY_DELAY }} seconds before retry..."
+              sleep ${{ env.RETRY_DELAY }}
+            fi
+          fi
+        done
+        
+        if [ "$SUCCESS" = "true" ]; then
+          echo "🎉 Keepalive completed successfully"
+        else
+          echo "💥 All ${{ env.MAX_RETRIES }} attempts failed"
+          # Log for monitoring but don't fail the workflow
+          echo "::warning::Keepalive failed after ${{ env.MAX_RETRIES }} attempts"
+        fi
+
+    - name: Health Check Summary
+      run: |
+        echo "📋 Keepalive Summary"
+        echo "=================="
+        echo "Timestamp: $(date -u)"
+        echo "Target: ${{ env.NETLIFY_SITE }}"
+        echo "Next run: $(date -u -d '+8 minutes')"
+        echo ""
+        echo "💡 This workflow keeps your Supabase database active"
+        echo "   by pinging it every 8 minutes to prevent cold starts."
