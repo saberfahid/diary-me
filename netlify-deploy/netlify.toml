@@ -1,10 +1,9 @@
-# Netlify configuration for DiaryMe app with Supabase keepalive
+# Netlify configuration for pre-built DiaryMe deployment
 
-# Pre-built deployment - no build command needed
-# Files are already built and optimized for SEO
 [build]
+  # Pre-built files - no build needed
   publish = "."
-
+  
 [functions]
   directory = "netlify/functions"
 

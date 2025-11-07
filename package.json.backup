@@ -1,0 +1,49 @@
+{
+  "name": "diaryme-digital-diary",
+  "version": "1.0.0",
+  "private": true,
+  "homepage": ".",
+  "description": "Free secure online diary app with cross-device synchronization. Write your daily thoughts, memories, and life moments. Beautiful, private, and sync across all your devices.",
+  "keywords": ["diary", "journal", "digital diary", "online diary", "personal journal", "free diary app", "cross device sync", "memories", "daily writing", "secure diary"],
+  "author": "DiaryMe Team",
+  "dependencies": {
+    "@supabase/supabase-js": "^2.80.0",
+    "@tailwindcss/typography": "^0.5.16",
+    "@tiptap/extension-color": "^2.26.1",
+    "@tiptap/extension-image": "^2.26.1",
+    "@tiptap/extension-link": "^2.26.1",
+    "@tiptap/extension-text-style": "^2.26.1",
+    "@tiptap/extension-underline": "^2.26.1",
+    "@tiptap/react": "^2.0.0",
+    "@tiptap/starter-kit": "^2.0.0",
+    "autoprefixer": "^10.4.21",
+    "date-fns": "^3.0.0",
+    "dexie": "^3.2.4",
+    "docx": "^9.5.1",
+    "html2pdf.js": "^0.10.1",
+    "jszip": "^3.10.1",
+    "postcss": "^8.5.6",
+    "react": "^18.0.0",
+    "react-beautiful-dnd": "^13.1.1",
+    "react-dom": "^18.0.0",
+    "react-router-dom": "^7.8.2",
+    "react-scripts": "^5.0.1",
+    "tailwindcss": "^3.4.17"
+  },
+  "scripts": {
+    "start": "react-scripts start",
+    "build": "react-scripts build && node copy-redirects.js"
+  },
+  "browserslist": {
+    "production": [
+      ">0.2%",
+      "not dead",
+      "not op_mini all"
+    ],
+    "development": [
+      "last 1 chrome version",
+      "last 1 firefox version",
+      "last 1 safari version"
+    ]
+  }
+}
