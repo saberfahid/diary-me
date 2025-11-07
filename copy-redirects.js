@@ -1,12 +1,17 @@
 const fs = require('fs');
 const path = require('path');
 
-const src = path.join(__dirname, 'public', '_redirects');
-const dest = path.join(__dirname, 'build', '_redirects');
+// Copy _redirects file from public to build folder
+const source = path.join(__dirname, 'public', '_redirects');
+const destination = path.join(__dirname, 'build', '_redirects');
 
-if (fs.existsSync(src)) {
-  fs.copyFileSync(src, dest);
-  console.log('Copied _redirects to build folder.');
-} else {
-  console.warn('_redirects file not found in public folder.');
+try {
+  if (fs.existsSync(source)) {
+    fs.copyFileSync(source, destination);
+    console.log('✅ _redirects file copied to build folder');
+  } else {
+    console.log('⚠️ _redirects file not found in public folder');
+  }
+} catch (error) {
+  console.error('❌ Error copying _redirects file:', error.message);
 }

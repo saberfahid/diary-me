@@ -167,7 +167,7 @@ const ExportButtons = ({ entry }) => {
         className="bg-blue-500 text-white px-3 py-1 rounded hover:bg-blue-600"
         onClick={e => { e.stopPropagation(); e.preventDefault(); setShowMenu(!showMenu); }}
       >
-        Download
+        Export
       </button>
       {showMenu && (
         <div className="absolute z-50 bottom-12 left-0 bg-white border rounded shadow-lg flex flex-col min-w-[12rem] w-max">
@@ -182,7 +182,7 @@ const ExportButtons = ({ entry }) => {
         onClick={e => {
           e.preventDefault();
           e.stopPropagation();
-          window.open('https://hellomydude.gumroad.com/coffee', '_blank', 'noopener,noreferrer');
+          window.open(process.env.REACT_APP_SUPPORT_LINK || 'https://hellomydude.gumroad.com/coffee', '_blank', 'noopener,noreferrer');
         }}
       >
   <span role="img" aria-label="coffee">☕</span>

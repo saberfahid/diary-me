@@ -1,41 +1,96 @@
-name: Supabase Keepalive
+name: Supabase Keepalive - Enhanced
 
+# Run every 10-15 minutes to keep Supabase database awake
 on:
-  # Disabled - function endpoint not working, use simple-keepalive.yml instead
-  # schedule:
-  #   - cron: '*/10 * * * *'
-  workflow_dispatch: # Allow manual triggering for testing only
+  schedule:
+    # Every 12 minutes during peak hours (6 AM to 11 PM UTC)
+    - cron: '*/12 6-23 * * *'
+    # Every 20 minutes during off-peak hours (11 PM to 6 AM UTC) 
+    - cron: '*/20 23,0-5 * * *'
+  
+  # Allow manual trigger for testing
+  workflow_dispatch:
 
 jobs:
   keepalive:
     runs-on: ubuntu-latest
+    timeout-minutes: 5
     
     steps:
-    - name: Ping Keepalive Endpoint
+    - name: Direct Supabase Database Keepalive
       run: |
-        echo "Pinging keepalive endpoint at $(date)"
+        echo "🚀 Starting Supabase database keepalive at $(date -u '+%Y-%m-%d %H:%M:%S UTC')"
         
-        # Replace bejewelled-salamander-08452f with your actual Netlify site URL
-        KEEPALIVE_URL="https://bejewelled-salamander-08452f.netlify.app/.netlify/functions/keepalive"
+        # Direct Supabase API call to keep database awake
+        SUPABASE_URL="https://jacjddyduizteupvbxop.supabase.co"
+        API_KEY="eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImphY2pkZHlkdWl6dGV1cHZieG9wIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NjI0NDY5MTMsImV4cCI6MjA3ODAyMjkxM30.WExcCa9S7vRg4Y29b16AiE8BpIsypMGhnmWhR00D7Nw"
         
-        # Make the request and capture response
-        RESPONSE=$(curl -s -w "\n%{http_code}" "$KEEPALIVE_URL" || echo "curl_failed")
-        HTTP_CODE=$(echo "$RESPONSE" | tail -n1)
-        BODY=$(echo "$RESPONSE" | head -n -1)
+        # Perform keepalive query with detailed metrics
+        response=$(curl -s -w "HTTPSTATUS:%{http_code};TIME:%{time_total};SIZE:%{size_download}" \
+          -H "apikey: $API_KEY" \
+          -H "Authorization: Bearer $API_KEY" \
+          -H "Content-Type: application/json" \
+          --connect-timeout 10 \
+          --max-time 30 \
+          "$SUPABASE_URL/rest/v1/diary_entries?select=id&limit=1" || echo "HTTPSTATUS:000;TIME:0;SIZE:0")
         
-        echo "HTTP Status: $HTTP_CODE"
-        echo "Response Body: $BODY"
+        # Parse response metrics
+        http_status=$(echo $response | grep -o "HTTPSTATUS:[0-9]*" | cut -d: -f2)
+        response_time=$(echo $response | grep -o "TIME:[0-9.]*" | cut -d: -f2)
+        response_size=$(echo $response | grep -o "SIZE:[0-9]*" | cut -d: -f2)
         
-        # Check if the request was successful
-        if [ "$HTTP_CODE" = "200" ]; then
-          echo "�?Keepalive successful"
+        # Log detailed results
+        echo "📊 Keepalive Metrics:"
+        echo "   🎯 Database Status: $http_status"
+        echo "   ⚡ Response Time: ${response_time}s"
+        echo "   📦 Response Size: ${response_size} bytes"
+        echo "   🕒 Timestamp: $(date -u '+%Y-%m-%d %H:%M:%S UTC')"
+        
+        # Verify success
+        if [ "$http_status" = "200" ]; then
+          echo "✅ SUCCESS: Supabase database is awake and responsive!"
+          
+          # Performance assessment
+          if (( $(echo "$response_time < 1.0" | bc -l) )); then
+            echo "🚀 EXCELLENT: Database response time under 1 second"
+          elif (( $(echo "$response_time < 3.0" | bc -l) )); then
+            echo "✨ GOOD: Database response time acceptable"
+          else
+            echo "⚠️  SLOW: Database response time over 3 seconds"
+          fi
+          
         else
-          echo "�?Keepalive failed with status $HTTP_CODE"
-          echo "Response: $BODY"
-          # Don't fail the workflow for keepalive failures - just log them
+          echo "❌ FAILED: Database keepalive failed with status $http_status"
+          echo "🔍 This may indicate database sleep or connectivity issues"
+          
+          # Still don't fail the workflow - just log for monitoring
+          echo "📝 Note: Workflow continues to prevent GitHub Actions spam"
         fi
 
-    - name: Log Completion
+    - name: Ping Netlify Function (Optional)
       run: |
-        echo "Keepalive check completed at $(date)"
-        echo "Next scheduled run in 10 minutes"
+        echo "🔄 Attempting to ping Netlify keepalive function..."
+        
+        # Try to ping the Netlify function as backup
+        netlify_response=$(curl -s -w "HTTPSTATUS:%{http_code};TIME:%{time_total}" \
+          --connect-timeout 5 \
+          --max-time 15 \
+          "https://diaryme.netlify.app/.netlify/functions/keep-supabase-awake" 2>/dev/null || echo "HTTPSTATUS:000;TIME:0")
+        
+        netlify_status=$(echo $netlify_response | grep -o "HTTPSTATUS:[0-9]*" | cut -d: -f2)
+        netlify_time=$(echo $netlify_response | grep -o "TIME:[0-9.]*" | cut -d: -f2)
+        
+        if [ "$netlify_status" = "200" ]; then
+          echo "✅ Netlify function responded successfully (${netlify_time}s)"
+        else
+          echo "⚠️  Netlify function unavailable (status: $netlify_status)"
+          echo "📝 This is optional - direct database ping is sufficient"
+        fi
+
+    - name: Summary Report  
+      run: |
+        echo ""
+        echo "🎉 KEEPALIVE WORKFLOW COMPLETED"
+        echo "⏰ Next run scheduled in 12-20 minutes"
+        echo "🎯 Mission: Keep Supabase database active for instant user experience"
+        echo ""

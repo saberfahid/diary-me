@@ -1,5 +1,4 @@
 import ExportButtons from './ExportButtons';
-import BuyMeACoffee from './BuyMeACoffee';
 import DiaryEditor from './DiaryEditor';
 import React from 'react';
 import { useParams, useNavigate, useLocation } from 'react-router-dom';
@@ -12,11 +11,22 @@ function EntryPage() {
   const [entry, setEntry] = React.useState(null);
   const [editing, setEditing] = React.useState(false);
   const [loading, setLoading] = React.useState(true);
+  const [deleting, setDeleting] = React.useState(false);
   const user = useSupabaseUser();
+
+  // Auto-redirect when entry is not found (after loading is complete)
+  React.useEffect(() => {
+    if (!entry && !loading && !deleting) {
+      const timer = setTimeout(() => {
+        navigate('/', { replace: true });
+      }, 3000);
+      return () => clearTimeout(timer);
+    }
+  }, [entry, loading, deleting, navigate]);
 
   React.useEffect(() => {
     const loadEntry = async () => {
-      if (!user?.id || !id) {
+      if (!user?.id || !id || deleting) {
         setLoading(false);
         return;
       }
@@ -51,7 +61,7 @@ function EntryPage() {
     };
 
     loadEntry();
-  }, [id, user?.id]);
+  }, [id, user?.id, deleting]);
 
   React.useEffect(() => {
     if (location.search.includes('edit=true')) {
@@ -72,21 +82,24 @@ function EntryPage() {
     );
   }
 
-  if (!entry) {
+  if (!entry && !loading) {
     return (
-      <div className="min-h-screen flex items-center justify-center">
-        <div className="bg-white rounded shadow p-10 text-center w-full max-w-3xl mx-auto text-lg">
-          <p className="text-base text-gray-700 mb-2">Entry not found.</p>
-          <p className="text-sm text-gray-500 mb-4">The entry with ID "{id}" could not be loaded.</p>
-          <div className="flex gap-2 justify-center">
+      <div className="min-h-screen flex items-center justify-center bg-gradient-to-br from-pink-200 via-blue-100 to-purple-200">
+        <div className="bg-white/95 rounded-3xl shadow-2xl p-8 text-center max-w-md mx-4">
+          <div className="text-6xl mb-4">😔</div>
+          <h2 className="text-xl font-bold text-gray-800 mb-2">Entry Not Found</h2>
+          <p className="text-gray-600 mb-2">This diary entry couldn't be loaded.</p>
+          <p className="text-sm text-gray-500 mb-4">It may have been deleted or the link is invalid.</p>
+          <p className="text-xs text-blue-500 mb-6">Redirecting to timeline in 3 seconds...</p>
+          <div className="flex gap-3 justify-center">
             <button 
-              className="px-4 py-2 bg-blue-600 text-white rounded shadow hover:bg-blue-700" 
+              className="px-6 py-2 bg-gradient-to-r from-blue-500 to-purple-500 text-white rounded-full font-semibold shadow hover:from-blue-600 hover:to-purple-600 transition-all" 
               onClick={() => navigate('/')}
             >
-              Go to Home
+              Go Now
             </button>
             <button 
-              className="px-4 py-2 bg-gray-600 text-white rounded shadow hover:bg-gray-700" 
+              className="px-6 py-2 bg-gray-500 text-white rounded-full font-semibold shadow hover:bg-gray-600 transition-all" 
               onClick={() => navigate(-1)}
             >
               Go Back
@@ -132,50 +145,64 @@ function EntryPage() {
         )}
   {entry.image && <img src={entry.image} alt="Diary" className="my-6 max-h-80 rounded mx-auto" />}
   <div className="prose prose-lg max-w-none bg-gray-50 p-6 rounded border border-gray-200 text-gray-900 text-center" dangerouslySetInnerHTML={{ __html: entry.content }} />
-        <div className="flex flex-col items-center mt-4 gap-2">
-          <ExportButtons entry={entry} />
-          <button
-            className="bg-blue-600 text-white px-3 py-1 rounded shadow text-sm font-semibold"
-            onClick={() => {
-              navigator.clipboard.writeText(window.location.href);
-              alert('Entry link copied! You can share it, but only you can view it on this device.');
-            }}
-          >
-            Share Entry
-          </button>
-          <button
-            className="bg-green-600 text-white px-3 py-1 rounded shadow text-sm font-semibold"
-            onClick={() => setEditing(true)}
-          >
-            Edit Entry
-          </button>
-          <button
-            className="bg-red-500 text-white px-3 py-1 rounded shadow text-sm font-semibold hover:bg-red-600"
-            onClick={async () => {
-              if (!window.confirm('Are you sure you want to delete this diary entry? This action cannot be undone.')) {
-                return;
-              }
-              
-              try {
-                const diaryService = new DiaryDataService(user.id);
-                await diaryService.initialize();
-                const result = await diaryService.deleteEntry(entry.id);
-                
-                if (result.success) {
-                  // Navigate back to home after successful deletion
-                  navigate('/', { replace: true });
-                } else {
-                  alert('Failed to delete entry: ' + (result.error?.message || 'Unknown error'));
+        <div className="mt-8 space-y-4">
+          {/* Export Section */}
+          <div className="flex justify-center">
+            <ExportButtons entry={entry} />
+          </div>
+          
+          {/* Action Buttons - Cute arrangement */}
+          <div className="flex flex-wrap justify-center gap-3">
+            <button
+              className="flex items-center gap-2 bg-gradient-to-r from-blue-500 to-blue-600 hover:from-blue-600 hover:to-blue-700 text-white px-4 py-2 rounded-full shadow-lg text-sm font-semibold transition-all duration-200 transform hover:scale-105"
+              onClick={() => {
+                navigator.clipboard.writeText(window.location.href);
+                alert('Entry link copied! You can share it, but only you can view it on this device.');
+              }}
+            >
+              📋 Share Entry
+            </button>
+            
+            <button
+              className="flex items-center gap-2 bg-gradient-to-r from-green-500 to-green-600 hover:from-green-600 hover:to-green-700 text-white px-4 py-2 rounded-full shadow-lg text-sm font-semibold transition-all duration-200 transform hover:scale-105"
+              onClick={() => setEditing(true)}
+            >
+              ✏️ Edit Entry
+            </button>
+            
+            <button
+              className="flex items-center gap-2 bg-gradient-to-r from-red-500 to-red-600 hover:from-red-600 hover:to-red-700 text-white px-4 py-2 rounded-full shadow-lg text-sm font-semibold transition-all duration-200 transform hover:scale-105 disabled:opacity-50 disabled:cursor-not-allowed disabled:transform-none"
+              disabled={deleting}
+              onClick={async () => {
+                if (!window.confirm('Are you sure you want to delete this diary entry? This action cannot be undone.')) {
+                  return;
                 }
-              } catch (error) {
-                console.error('Error deleting entry:', error);
-                alert('Error deleting entry: ' + error.message);
-              }
-            }}
-          >
-            Delete Entry
-          </button>
-          <BuyMeACoffee inline />
+                
+                setDeleting(true);
+                
+                try {
+                  const diaryService = new DiaryDataService(user.id);
+                  await diaryService.initialize();
+                  const result = await diaryService.deleteEntry(entry.id);
+                  
+                  if (result.success) {
+                    // Navigate after successful deletion
+                    navigate('/', { replace: true });
+                  } else {
+                    console.error('Failed to delete entry:', result.error);
+                    setDeleting(false);
+                    alert('Failed to delete entry. Please try again.');
+                  }
+                } catch (error) {
+                  console.error('Error deleting entry:', error);
+                  setDeleting(false);
+                  alert('Error deleting entry. Please try again.');
+                }
+              }}
+            >
+              🗑️ {deleting ? 'Deleting...' : 'Delete Entry'}
+            </button>
+          </div>
         </div>
       </div>
     </div>

@@ -1,6 +1,5 @@
 import React, { useEffect, useState } from 'react';
 import { DragDropContext, Droppable, Draggable } from 'react-beautiful-dnd';
-import BuyMeACoffee from './BuyMeACoffee';
 import { useSupabaseUser } from '../useSupabaseUser';
 import { Link } from 'react-router-dom';
 import { Document, Packer, Paragraph, HeadingLevel, ImageRun } from 'docx';
@@ -12,20 +11,48 @@ function DiaryList(props) {
   const [isLoading, setIsLoading] = useState(true);
   const [dataService, setDataService] = useState(null);
   const user = useSupabaseUser();
+  
+  console.log('DiaryList: User state:', user);
 
   // Initialize data service when user is available
   useEffect(() => {
     const initializeService = async () => {
       if (user?.id) {
         try {
+          console.log('DiaryList: Initializing data service for user:', user.id);
           const service = new DiaryDataService(user.id);
           await service.initialize();
           setDataService(service);
+          
+          // Load entries immediately after service initialization
           loadEntries(service);
+          
+          // Set up frequent automatic sync every 30 seconds when component is active
+          const syncInterval = setInterval(async () => {
+            if (document.visibilityState === 'visible') {
+              console.log('DiaryList: Performing automatic background sync...');
+              try {
+                await service.syncWithSupabase(true);
+                const updatedEntries = await service.getEntries();
+                setEntries(updatedEntries);
+              } catch (error) {
+                console.error('Background sync error:', error);
+              }
+            }
+          }, 30 * 1000); // 30 seconds for frequent auto-sync
+          
+          // Cleanup interval on component unmount
+          return () => clearInterval(syncInterval);
+          
         } catch (error) {
           console.error('Error initializing data service:', error);
           setIsLoading(false);
         }
+      } else {
+        console.log('DiaryList: No user available, clearing data service');
+        setDataService(null);
+        setEntries([]);
+        setIsLoading(false);
       }
     };
     
@@ -40,6 +67,7 @@ function DiaryList(props) {
     try {
       // Load from local database first (fast)
       const localEntries = await service.getEntries();
+      console.log('DiaryList: Setting entries to state:', localEntries);
       setEntries(localEntries);
       
       // Sync with Supabase in background
@@ -57,10 +85,63 @@ function DiaryList(props) {
 
   // Reload entries when refresh prop changes
   useEffect(() => {
+    console.log('DiaryList: Refresh prop changed:', props.refresh, 'dataService:', !!dataService);
     if (dataService && props.refresh) {
+      console.log('DiaryList: Reloading entries due to refresh prop change');
       loadEntries();
     }
   }, [props.refresh]);
+
+  // Add multiple auto-sync triggers for seamless cross-device experience
+  useEffect(() => {
+    if (!dataService) return;
+
+    const handleVisibilityChange = async () => {
+      if (document.visibilityState === 'visible') {
+        console.log('DiaryList: Page became visible, performing immediate sync...');
+        try {
+          await dataService.syncWithSupabase(true);
+          const updatedEntries = await dataService.getEntries();
+          setEntries(updatedEntries);
+        } catch (error) {
+          console.error('Visibility sync error:', error);
+        }
+      }
+    };
+
+    const handleFocus = async () => {
+      console.log('DiaryList: Window focused, performing sync...');
+      try {
+        await dataService.syncWithSupabase(true);
+        const updatedEntries = await dataService.getEntries();
+        setEntries(updatedEntries);
+      } catch (error) {
+        console.error('Focus sync error:', error);
+      }
+    };
+
+    const handleOnline = async () => {
+      console.log('DiaryList: Connection restored, performing sync...');
+      try {
+        await dataService.syncWithSupabase(true);
+        const updatedEntries = await dataService.getEntries();
+        setEntries(updatedEntries);
+      } catch (error) {
+        console.error('Online sync error:', error);
+      }
+    };
+
+    // Add event listeners for various auto-sync triggers
+    document.addEventListener('visibilitychange', handleVisibilityChange);
+    window.addEventListener('focus', handleFocus);
+    window.addEventListener('online', handleOnline);
+
+    return () => {
+      document.removeEventListener('visibilitychange', handleVisibilityChange);
+      window.removeEventListener('focus', handleFocus);
+      window.removeEventListener('online', handleOnline);
+    };
+  }, [dataService]);
 
   // Filter entries
   const filtered = entries.filter(entry => {
@@ -269,8 +350,13 @@ function DiaryList(props) {
   <h2 className="text-2xl sm:text-4xl font-semibold px-4 py-2 rounded-2xl bg-white/80 shadow text-blue-700 tracking-tight" style={{wordBreak: 'break-word'}}>Diary Entries</h2>
       </div>
       <button
-        className="mb-4 w-full sm:w-auto flex items-center gap-1 bg-gradient-to-r from-blue-500 to-purple-500 text-white px-3 py-2 rounded-full font-bold shadow hover:from-blue-600 hover:to-purple-600 transition-all duration-200 text-sm active:scale-95 min-h-[40px]"
-        onClick={downloadAllAsWord}
+        className={`mb-4 w-full sm:w-auto flex items-center gap-1 px-3 py-2 rounded-full font-bold shadow transition-all duration-200 text-sm active:scale-95 min-h-[40px] ${
+          entries.length === 0 
+            ? 'bg-gray-400 text-gray-200 cursor-not-allowed' 
+            : 'bg-gradient-to-r from-blue-500 to-purple-500 text-white hover:from-blue-600 hover:to-purple-600'
+        }`}
+        onClick={entries.length === 0 ? undefined : downloadAllAsWord}
+        disabled={entries.length === 0}
         style={{ touchAction: 'manipulation', lineHeight: 1, minWidth: 0, wordBreak: 'break-word' }}
       >
         <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={2} stroke="currentColor" className="w-4 h-4">
@@ -337,9 +423,6 @@ function DiaryList(props) {
                                   >
                                     <span>🗑️</span>
                                   </button>
-                                  <span>
-                                    <BuyMeACoffee />
-                                  </span>
                                 </div>
                               </div>
                               {entry.image && <img src={entry.image} alt="Diary" className="my-2 max-h-40 rounded-xl shadow w-full" style={{objectFit: 'cover'}} />}

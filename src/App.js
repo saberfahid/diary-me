@@ -1,9 +1,8 @@
 import React, { useState, useEffect } from 'react';
-import { supabase } from './components/supabaseClient';
+import { supabase } from './supabaseClient';
 import Auth from './components/Auth';
 import DiaryEditor from './components/DiaryEditor';
 import DiaryList from './components/DiaryList';
-import BuyMeACoffee from './components/BuyMeACoffee';
 // ...existing code...
 function App() {
   const [refreshList, setRefreshList] = useState(0);
@@ -20,13 +19,17 @@ function App() {
     localStorage.removeItem('diary_last_written');
   };
 
-  // Handle auth state changes (including after signup with email confirmation disabled)
+  // Handle auth state changes (including after email confirmation)
   useEffect(() => {
     const { data: { subscription } } = supabase.auth.onAuthStateChange((event, session) => {
+      console.log('App.js: Auth state change:', event, 'Session:', session);
+      // Temporarily allow any authenticated user (for debugging)
       if (session?.user) {
+        console.log('App.js: User authenticated, setting logged in');
         setLoggedIn(true);
         localStorage.setItem('diary_logged_in', 'true');
       } else if (event === 'SIGNED_OUT') {
+        console.log('App.js: User signed out');
         setLoggedIn(false);
         localStorage.setItem('diary_logged_in', 'false');
       }
@@ -58,32 +61,32 @@ function App() {
     // Initial keepalive for any visitor (logged in or not)
     keepalive();
     
-    // Set up interval for keepalive (every 5 minutes when user is active)
-    const interval = setInterval(keepalive, 5 * 60 * 1000);
+    // Set up frequent interval for keepalive (every 2 minutes when user is active)
+    const interval = setInterval(keepalive, 2 * 60 * 1000);
     
     return () => clearInterval(interval);
   }, []); // Removed loggedIn dependency - now runs for all visitors
 
-  // Additional logged-in user keepalive (more frequent for active users)
+  // Additional logged-in user keepalive (very frequent for active users)
   useEffect(() => {
     if (!loggedIn) return;
 
     const loggedInKeepalive = async () => {
       try {
-        // More comprehensive keepalive for logged-in users
+        // More comprehensive keepalive for logged-in users with auto-sync
         const { data } = await supabase
           .from('diary_entries')
           .select('id')
           .limit(1);
         
-        console.log('Logged-in user keepalive:', { count: data?.length || 0 });
+        console.log('Logged-in user automatic keepalive:', { count: data?.length || 0 });
       } catch (err) {
         console.log('Logged-in keepalive error:', err.message);
       }
     };
 
-    // More frequent keepalive for active users (every 3 minutes)
-    const interval = setInterval(loggedInKeepalive, 3 * 60 * 1000);
+    // Very frequent keepalive for active users (every 1 minute for instant sync)
+    const interval = setInterval(loggedInKeepalive, 1 * 60 * 1000);
     
     return () => clearInterval(interval);
   }, [loggedIn]);
@@ -167,22 +170,51 @@ function App() {
   }, [loggedIn]);
 
   return loggedIn ? (
-    <div className="app-container min-h-screen bg-gradient-to-br from-pink-100 via-blue-100 to-purple-100 flex flex-col items-center py-4 px-2" style={{maxWidth: '700px', width: '100vw', margin: '0 auto', overflowX: 'hidden', boxSizing: 'border-box'}}>
-      <header className="mb-4 w-full max-w-full mx-auto px-2 relative">
+    <div className="app-container min-h-screen bg-gradient-to-br from-pink-100 via-blue-100 to-purple-100 flex flex-col items-center py-4 px-2 relative" style={{maxWidth: '700px', width: '100vw', margin: '0 auto', overflowX: 'hidden', boxSizing: 'border-color'}}>
+      <header className="fixed top-0 left-1/2 transform -translate-x-1/2 w-full max-w-full mx-auto px-2 bg-gradient-to-br from-pink-100 via-blue-100 to-purple-100 z-50 py-4 border-b-4 border-pink-300 shadow-xl rounded-b-3xl" style={{maxWidth: '700px', borderImage: 'linear-gradient(90deg, #f472b6, #60a5fa, #a78bfa) 1', backdropFilter: 'blur(10px)', background: 'linear-gradient(135deg, rgba(252, 231, 243, 0.95), rgba(219, 234, 254, 0.95), rgba(237, 233, 254, 0.95))'}}>
+        
         <button
-          className="absolute top-2 left-2 bg-pink-200 text-pink-700 px-3 py-1 sm:px-4 sm:py-2 rounded-full shadow font-cursive text-sm sm:text-base flex items-center gap-2 hover:bg-pink-300 transition-all duration-200"
+          className="absolute top-3 left-3 bg-gradient-to-r from-pink-200 to-pink-300 hover:from-pink-300 hover:to-pink-400 text-pink-700 px-3 py-1 sm:px-4 sm:py-2 rounded-full shadow-lg font-cursive text-sm sm:text-base flex items-center gap-2 transition-all duration-300 transform hover:scale-105 border-2 border-pink-300"
           style={{zIndex: 20}}
           onClick={handleSignOut}
         >
-          <span role="img" aria-label="wave">👋</span> Sign Out
+          <span role="img" aria-label="wave">👋</span> 
+          <span className="hidden sm:inline">Sign Out</span>
+          <span className="sm:hidden">Out</span>
         </button>
-        <h1 className="text-3xl sm:text-4xl font-extrabold text-center text-pink-500 mb-2 font-cursive tracking-wide" style={{wordBreak: 'break-word'}}>
-          DiaryMe
-        </h1>
+        
+        {/* Coffee Button in Header */}
+        <div className="absolute top-3 right-3 z-20">
+          <a
+            href={process.env.REACT_APP_SUPPORT_LINK || "https://hellomydude.gumroad.com/coffee"}
+            target="_blank"
+            rel="noopener noreferrer"
+            className="group bg-gradient-to-r from-yellow-400 via-orange-400 to-pink-400 hover:from-yellow-500 hover:via-orange-500 hover:to-pink-500 text-white font-bold p-2 rounded-full shadow-xl transition-all duration-300 flex items-center justify-center transform hover:scale-110 hover:rotate-12 border-2 border-yellow-300"
+            style={{ 
+              boxShadow: '0 6px 20px rgba(255,193,7,0.5)', 
+              minWidth: '42px', 
+              minHeight: '42px'
+            }}
+            title="Buy me a coffee ☕"
+          >
+            <span role="img" aria-label="coffee" className="text-lg group-hover:animate-bounce">
+              ☕
+            </span>
+          </a>
+        </div>
+        
+        <div className="text-center relative">
+          <h1 className="text-3xl sm:text-4xl font-extrabold text-transparent bg-clip-text bg-gradient-to-r from-pink-500 via-blue-500 to-purple-500 mb-1 font-cursive tracking-wide" style={{wordBreak: 'break-word'}}>
+            DiaryMe
+          </h1>
+          <div className="text-xs text-pink-400 font-cursive">
+            Your magical diary space
+          </div>
+        </div>
   {/* Guide removed as requested */}
         {/* Guide dropdown removed as requested */}
       </header>
-      <main className="w-full max-w-full mx-auto flex flex-col gap-4 px-0 sm:px-2">
+      <main className="w-full max-w-full mx-auto flex flex-col gap-4 px-0 sm:px-2" style={{paddingTop: '80px'}}>
         <section className="bg-white/90 rounded-3xl shadow-xl p-4 flex flex-col items-center border-2 border-pink-200 w-full" style={{maxWidth: '100%', boxSizing: 'border-box', padding: '16px'}}>
           <button
             className="bg-gradient-to-r from-pink-400 via-blue-400 to-purple-400 text-white px-4 py-2 rounded-full font-extrabold shadow hover:scale-105 transition-transform duration-200 text-lg font-cursive w-full mb-2"
@@ -215,13 +247,14 @@ function App() {
           <DiaryList refresh={refreshList} />
         </section>
       </main>
-      <div className="w-full flex flex-row gap-1 mt-6 mb-2 justify-end items-center px-2" style={{padding: '16px'}}>
-        <div className="w-auto">
-          <BuyMeACoffee />
-        </div>
-      </div>
+      
       <style>{`
         .font-cursive { font-family: 'Comic Sans MS', 'Comic Sans', cursive; }
+        
+        @keyframes float {
+          0%, 100% { transform: translateY(0px); }
+          50% { transform: translateY(-10px); }
+        }
         @media (max-width: 480px) {
           .rounded-3xl { border-radius: 1.5rem; }
           .shadow-xl { box-shadow: 0 4px 24px 0 rgba(0,0,0,0.08); }

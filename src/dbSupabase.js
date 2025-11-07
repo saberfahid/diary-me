@@ -1,7 +1,7 @@
 // Supabase table: diary_entries
 // Columns: id (uuid, primary key), user_id (uuid), title (text), content (text), mood (text), tags (text[]), date (date), image (text)
 
-import { supabase } from './components/supabaseClient';
+import { supabase } from './supabaseClient';
 
 export async function saveDiaryEntryToSupabase(entry, userId) {
   const { data, error } = await supabase

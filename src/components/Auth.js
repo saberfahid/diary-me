@@ -1,5 +1,5 @@
-import React, { useState } from 'react';
-import { supabase } from './supabaseClient';
+import React, { useState, useEffect } from 'react';
+import { supabase } from '../supabaseClient';
 
 export default function Auth({ onAuth }) {
   const [email, setEmail] = useState('');
@@ -7,37 +7,116 @@ export default function Auth({ onAuth }) {
   const [error, setError] = useState('');
   const [loading, setLoading] = useState(false);
   const [mode, setMode] = useState('signin'); // 'signin' or 'signup'
+  const [rateLimited, setRateLimited] = useState(false);
   const [confirmationSent, setConfirmationSent] = useState(false);
+
+  // Check for confirmation success from URL params
+  useEffect(() => {
+    const urlParams = new URLSearchParams(window.location.search);
+    if (urlParams.get('confirmed') === 'true') {
+      setError('');
+      // Clear the URL param
+      window.history.replaceState({}, document.title, window.location.pathname);
+    } else if (urlParams.get('error')) {
+      setError(decodeURIComponent(urlParams.get('error')));
+      window.history.replaceState({}, document.title, window.location.pathname);
+    }
+  }, []);
 
   const handleSignUp = async () => {
     setLoading(true);
-    const { error } = await supabase.auth.signUp({ email, password });
-    setLoading(false);
+    setError('');
     
-    if (error) {
-      setError(error.message);
+    try {
+      // Sign up with email confirmation enabled
+      const { data, error } = await supabase.auth.signUp({ 
+        email, 
+        password,
+        options: {
+          emailRedirectTo: `${window.location.origin}/auth/callback`
+        }
+      });
+      
+      if (error) {
+        // Handle rate limiting and other errors
+        let errorMsg = error.message;
+        
+        if (errorMsg.toLowerCase().includes('security') || errorMsg.toLowerCase().includes('seconds')) {
+          errorMsg = 'Please wait a moment before trying again for security reasons.';
+          setRateLimited(true);
+          // Auto-clear rate limit after 60 seconds
+          setTimeout(() => setRateLimited(false), 60000);
+        }
+        
+        setError(errorMsg);
+        setLoading(false);
+        return;
+      }
+
+      if (data?.user) {
+        setConfirmationSent(true);
+        setError('');
+      }
+    } catch (err) {
+      setError('Something went wrong. Please try again.');
+    }
+    
+    setLoading(false);
+  };
+
+  const handleResendConfirmation = async () => {
+    if (!email) {
+      setError('Please enter your email address first.');
       return;
     }
     
-    // Check if email confirmation is disabled (user has session immediately)
-    const { data: { session } } = await supabase.auth.getSession();
+    setLoading(true);
+    setError('');
     
-    if (session) {
-      // Email confirmation is disabled, user is automatically logged in
-      onAuth();
-    } else {
-      // Email confirmation is required
-      setConfirmationSent(true);
-      setError('');
+    try {
+      const { error } = await supabase.auth.resend({
+        type: 'signup',
+        email: email,
+        options: {
+          emailRedirectTo: `${window.location.origin}/auth/callback`
+        }
+      });
+      
+      if (error) {
+        setError(error.message);
+      } else {
+        setError('');
+        setConfirmationSent(true);
+      }
+    } catch (err) {
+      setError('Failed to resend confirmation email. Please try again.');
     }
+    
+    setLoading(false);
   };
 
   const handleSignIn = async () => {
     setLoading(true);
     const { error } = await supabase.auth.signInWithPassword({ email, password });
     setLoading(false);
-    if (error) setError(error.message);
-    else onAuth();
+    
+    if (error) {
+      // Handle rate limiting and other errors  
+      let errorMsg = error.message;
+      
+      if (errorMsg.toLowerCase().includes('security') || errorMsg.toLowerCase().includes('seconds')) {
+        errorMsg = 'Please wait a moment before trying again for security reasons.';
+        setRateLimited(true);
+        // Auto-clear rate limit after 60 seconds
+        setTimeout(() => setRateLimited(false), 60000);
+      } else if (errorMsg.toLowerCase().includes('invalid') && errorMsg.toLowerCase().includes('credentials')) {
+        errorMsg = 'Invalid email or password. Please check and try again.';
+      }
+      
+      setError(errorMsg);
+    } else {
+      onAuth();
+    }
   };
 
   return (
@@ -46,13 +125,14 @@ export default function Auth({ onAuth }) {
         {/* Logo removed for a cleaner look */}
         <h2 className="text-2xl font-extrabold text-pink-500 mb-2 font-cursive tracking-wide text-center drop-shadow">Welcome to DiaryMe!</h2>
         <p className="text-center text-purple-400 font-cursive text-base mb-4">
-          {mode === 'signin' ? 'Log in to access your diary.' : 'Sign up to start your diary.'}
+          {confirmationSent 
+            ? 'Check your email for a confirmation link!' 
+            : mode === 'signin' 
+            ? 'Log in to access your diary.' 
+            : 'Sign up to start your diary.'
+          }
         </p>
-        {confirmationSent && (
-          <div className="bg-pink-100 border border-pink-300 rounded-xl p-3 mb-2 text-center text-pink-700 text-sm">
-            Account created! Please check your email and click the confirmation link, then log in with your credentials.
-          </div>
-        )}
+
         <input
           type="email"
           placeholder="Email"
@@ -68,15 +148,41 @@ export default function Auth({ onAuth }) {
           className="border-2 border-blue-200 rounded-full p-3 mb-2 w-full focus:outline-none focus:ring-2 focus:ring-pink-300 bg-white/60 text-blue-700 placeholder-pink-300 text-base"
         />
         {error && <div className="text-red-500 text-xs mb-2 text-center">{error}</div>}
+        {confirmationSent && !error && (
+          <div className="text-green-600 text-xs mb-2 text-center bg-green-50 p-2 rounded-lg border border-green-200">
+            📧 Confirmation email sent! Please check your inbox and click the link to verify your account.
+            <div className="mt-2">
+              <button 
+                onClick={handleResendConfirmation}
+                disabled={loading || rateLimited}
+                className="text-blue-500 underline hover:text-blue-700 text-xs"
+              >
+                Resend confirmation email
+              </button>
+            </div>
+          </div>
+        )}
         {mode === 'signin' ? (
           <>
-            <button onClick={handleSignIn} disabled={loading || confirmationSent} className="bg-gradient-to-r from-blue-400 to-purple-400 text-white rounded-full p-3 w-full font-bold shadow hover:scale-105 transition-transform duration-200 mb-2 text-base">Sign In</button>
-            <button type="button" onClick={() => { setMode('signup'); setError(''); setConfirmationSent(false); }} className="text-pink-400 underline text-xs mb-2">New here? Create an account</button>
+            <button 
+              onClick={handleSignIn} 
+              disabled={loading || rateLimited} 
+              className={`bg-gradient-to-r from-blue-400 to-purple-400 text-white rounded-full p-3 w-full font-bold shadow hover:scale-105 transition-transform duration-200 mb-2 text-base ${rateLimited ? 'opacity-50 cursor-not-allowed' : ''}`}
+            >
+              {rateLimited ? 'Please Wait...' : loading ? 'Signing In...' : 'Sign In'}
+            </button>
+            <button type="button" onClick={() => { setMode('signup'); setError(''); setRateLimited(false); setConfirmationSent(false); }} className="text-pink-400 underline text-xs mb-1">New here? Create an account</button>
           </>
         ) : (
           <>
-            <button onClick={handleSignUp} disabled={loading || confirmationSent} className="bg-gradient-to-r from-pink-400 to-purple-400 text-white rounded-full p-3 w-full font-bold shadow hover:scale-105 transition-transform duration-200 mb-2 text-base">Sign Up</button>
-            <button type="button" onClick={() => { setMode('signin'); setError(''); setConfirmationSent(false); }} className="text-blue-400 underline text-xs mb-2">Already have an account? Log in</button>
+            <button 
+              onClick={handleSignUp} 
+              disabled={loading || rateLimited} 
+              className={`bg-gradient-to-r from-pink-400 to-purple-400 text-white rounded-full p-3 w-full font-bold shadow hover:scale-105 transition-transform duration-200 mb-2 text-base ${rateLimited ? 'opacity-50 cursor-not-allowed' : ''}`}
+            >
+              {rateLimited ? 'Please Wait...' : loading ? 'Creating Account...' : 'Sign Up'}
+            </button>
+            <button type="button" onClick={() => { setMode('signin'); setError(''); setRateLimited(false); setConfirmationSent(false); }} className="text-blue-400 underline text-xs mb-2">Already have an account? Log in</button>
           </>
         )}
       </div>

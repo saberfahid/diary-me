@@ -32,43 +32,83 @@ export class DiaryDataService {
     });
   }
 
+  // Initialize the service and perform initial sync
+  async initialize() {
+    console.log('DiaryDataService: Initializing for user:', this.userId);
+    
+    // Perform initial sync on login to ensure all devices see the same data
+    if (this.userId && this.isOnline) {
+      console.log('DiaryDataService: Performing initial sync on login...');
+      await this.syncWithSupabase(true); // Force sync on initialization
+    }
+    
+    return Promise.resolve();
+  }
+
   // Save entry locally first, then sync to Supabase
   async saveEntry(entryData) {
     try {
-      // Generate a temporary ID if not provided
-      const tempId = entryData.id || `temp_${Date.now()}`;
-      const entryWithId = { ...entryData, id: tempId, needsSync: true };
+      // Use a proper UUID-like ID instead of timestamp
+      const localId = entryData.id || `local_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`;
+      const entryWithId = { ...entryData, id: localId, needsSync: true };
+      
+      console.log('DiaryDataService: Saving entry locally:', entryWithId);
       
       // Save locally first (immediate response)
-      await saveDiaryEntry(entryWithId);
+      const savedId = await saveDiaryEntry(entryWithId);
       
-      // Add to sync queue for Supabase
-      this.addToSyncQueue('create', entryWithId);
-      
-      // Try immediate sync if online
+      // Force immediate sync if online - no manual intervention needed
       if (this.isOnline && this.userId) {
-        await this.processSyncQueue();
+        try {
+          const { data: supabaseData, error } = await saveDiaryEntryToSupabase(entryWithId, this.userId);
+          if (!error && supabaseData && supabaseData.length > 0) {
+            const realId = supabaseData[0].id;
+            // Update local entry with real Supabase ID
+            await updateDiaryEntry(savedId, { 
+              id: realId, 
+              needsSync: false 
+            });
+            console.log('DiaryDataService: Entry automatically synced to Supabase:', realId);
+            return { success: true, id: realId };
+          }
+        } catch (syncError) {
+          console.error('Immediate sync failed, adding to queue for auto-retry:', syncError);
+        }
       }
       
-      return { success: true, id: tempId };
+      // Add to sync queue for later if immediate sync failed
+      this.addToSyncQueue('create', entryWithId);
+      
+      return { success: true, id: savedId };
     } catch (error) {
       console.error('Error saving entry locally:', error);
       return { success: false, error };
     }
   }
 
-  // Update entry locally first, then sync to Supabase
+  // Update entry locally first, then sync to Supabase automatically
   async updateEntry(entryId, entryData) {
     try {
       // Update locally first (immediate response)
       await updateDiaryEntry(entryId, { ...entryData, needsSync: true });
       
-      // Add to sync queue for Supabase
-      this.addToSyncQueue('update', { id: entryId, ...entryData });
-      
-      // Try immediate sync if online
+      // Force immediate sync if online - automatic background processing
       if (this.isOnline && this.userId) {
+        try {
+          const { error: updateError } = await updateDiaryEntryInSupabase({ id: entryId, ...entryData }, this.userId, entryId);
+          if (!updateError) {
+            await updateDiaryEntry(entryId, { needsSync: false });
+            console.log('DiaryDataService: Entry automatically updated in Supabase:', entryId);
+          }
+        } catch (syncError) {
+          console.error('Immediate update sync failed, queued for auto-retry:', syncError);
+          // Add to sync queue for automatic retry
+          this.addToSyncQueue('update', { id: entryId, ...entryData });
+        }
         await this.processSyncQueue();
+      } else {
+        // Add to sync queue for when connection returns
+        this.addToSyncQueue('update', { id: entryId, ...entryData });
       }
       
       return { success: true };
@@ -78,7 +118,7 @@ export class DiaryDataService {
     }
   }
 
-  // Delete entry locally first, then sync to Supabase
+  // Delete entry locally first, then sync to Supabase automatically
   async deleteEntry(entryId) {
     try {
       // Get entry data first (for image cleanup)
@@ -87,12 +127,26 @@ export class DiaryDataService {
       // Delete locally first (immediate response)
       await deleteLocalEntry(entryId);
       
-      // Add to sync queue for Supabase
-      this.addToSyncQueue('delete', { id: entryId, image: entry?.image });
-      
-      // Try immediate sync if online
+      // Force immediate sync if online - automatic background processing
       if (this.isOnline && this.userId) {
+        try {
+          const { error: deleteError } = await deleteDiaryEntryFromSupabase(entryId, this.userId);
+          if (!deleteError) {
+            console.log('DiaryDataService: Entry automatically deleted from Supabase:', entryId);
+            // Delete image if exists
+            if (entry?.image && entry.image.startsWith('http')) {
+              await deleteImageFromSupabase(entry.image);
+            }
+          }
+        } catch (syncError) {
+          console.error('Immediate delete sync failed, queued for auto-retry:', syncError);
+          // Add to sync queue for automatic retry
+          this.addToSyncQueue('delete', { id: entryId, image: entry?.image });
+        }
         await this.processSyncQueue();
+      } else {
+        // Add to sync queue for when connection returns
+        this.addToSyncQueue('delete', { id: entryId, image: entry?.image });
       }
       
       return { success: true };
@@ -105,7 +159,9 @@ export class DiaryDataService {
   // Get entries from local database (fast)
   async getEntries() {
     try {
-      return await getDiaryEntries();
+      const entries = await getDiaryEntries();
+      console.log('DiaryDataService: Retrieved entries from local DB:', entries.length, entries);
+      return entries;
     } catch (error) {
       console.error('Error getting local entries:', error);
       return [];
@@ -119,34 +175,101 @@ export class DiaryDataService {
     }
 
     try {
-      // Get remote entries
+      console.log('DiaryDataService: Starting sync with Supabase for user:', this.userId);
+      
+      // Get remote entries from Supabase
       const { data: remoteEntries, error } = await getDiaryEntriesFromSupabase(this.userId);
       if (error) {
         console.error('Error fetching remote entries:', error);
         return;
       }
 
+      console.log('DiaryDataService: Found remote entries:', remoteEntries?.length || 0);
+
       // Get local entries
       const localEntries = await getDiaryEntries();
+      console.log('DiaryDataService: Found local entries:', localEntries?.length || 0);
       
-      // Merge and update local database with remote data
-      // (Skip entries that need sync to avoid conflicts)
-      const entriesToUpdate = remoteEntries?.filter(remote => {
-        const local = localEntries.find(l => l.id === remote.id);
-        return !local?.needsSync;
-      }) || [];
+      // STEP 1: Process pending sync operations first
+      await this.processSyncQueue();
       
-      for (const entry of entriesToUpdate) {
-        const existsLocally = localEntries.some(l => l.id === entry.id);
-        if (existsLocally) {
-          await updateDiaryEntry(entry.id, { ...entry, needsSync: false });
+      // STEP 2: Merge remote entries into local database
+      const remoteEntriesArray = remoteEntries || [];
+      
+      for (const remoteEntry of remoteEntriesArray) {
+        const localEntry = localEntries.find(l => 
+          l.id === remoteEntry.id || 
+          l.supabase_id === remoteEntry.id ||
+          (l.id.toString().startsWith('local_') && l.supabase_id === remoteEntry.id)
+        );
+        
+        if (localEntry) {
+          // Entry exists locally - update if remote is newer (and not pending sync)
+          if (!localEntry.needsSync) {
+            const remoteUpdated = new Date(remoteEntry.updated_at || remoteEntry.created_at);
+            const localUpdated = new Date(localEntry.updated_at || localEntry.created_at || localEntry.created);
+            
+            if (remoteUpdated > localUpdated) {
+              console.log('DiaryDataService: Updating local entry with remote data:', remoteEntry.id);
+              await updateDiaryEntry(localEntry.id, { 
+                ...remoteEntry, 
+                id: localEntry.id, // Keep local ID for IndexedDB
+                supabase_id: remoteEntry.id,
+                needsSync: false 
+              });
+            }
+          }
         } else {
-          await saveDiaryEntry({ ...entry, needsSync: false });
+          // Entry doesn't exist locally - add it
+          console.log('DiaryDataService: Adding new remote entry to local:', remoteEntry.id);
+          await saveDiaryEntry({ 
+            ...remoteEntry, 
+            id: remoteEntry.id, // Use Supabase ID as local ID
+            supabase_id: remoteEntry.id,
+            needsSync: false 
+          });
         }
       }
       
-      // Process any pending sync operations
-      await this.processSyncQueue();
+      // STEP 3: Upload any local entries that aren't in Supabase
+      const localOnlyEntries = localEntries.filter(local => {
+        if (local.needsSync) return true; // Definitely needs sync
+        
+        const existsRemote = remoteEntriesArray.some(remote => 
+          remote.id === local.id || 
+          remote.id === local.supabase_id ||
+          local.id === remote.id
+        );
+        
+        return !existsRemote;
+      });
+      
+      console.log('DiaryDataService: Found local-only entries to sync:', localOnlyEntries.length);
+      
+      for (const localEntry of localOnlyEntries) {
+        if (!localEntry.id.toString().startsWith('local_')) {
+          // Skip entries that might be duplicates
+          continue;
+        }
+        
+        try {
+          console.log('DiaryDataService: Uploading local entry to Supabase:', localEntry.id);
+          const { data: supabaseData, error: uploadError } = await saveDiaryEntryToSupabase(localEntry, this.userId);
+          
+          if (!uploadError && supabaseData && supabaseData.length > 0) {
+            const supabaseId = supabaseData[0].id;
+            await updateDiaryEntry(localEntry.id, { 
+              supabase_id: supabaseId,
+              needsSync: false 
+            });
+            console.log('DiaryDataService: Successfully uploaded entry:', supabaseId);
+          }
+        } catch (uploadError) {
+          console.error('DiaryDataService: Failed to upload entry:', uploadError);
+        }
+      }
+      
+      console.log('DiaryDataService: Sync with Supabase completed');
       
     } catch (error) {
       console.error('Error syncing with Supabase:', error);
@@ -182,10 +305,15 @@ export class DiaryDataService {
   async processSyncItem({ operation, data }) {
     switch (operation) {
       case 'create': {
-        const { error: createError } = await saveDiaryEntryToSupabase(data, this.userId);
-        if (!createError) {
-          // Mark as synced locally
-          await updateDiaryEntry(data.id, { needsSync: false });
+        const { data: supabaseData, error: createError } = await saveDiaryEntryToSupabase(data, this.userId);
+        if (!createError && supabaseData && supabaseData.length > 0) {
+          // Update local entry with Supabase ID and mark as synced
+          const supabaseId = supabaseData[0].id;
+          await updateDiaryEntry(data.id, { 
+            supabase_id: supabaseId, 
+            needsSync: false 
+          });
+          console.log('DiaryDataService: Entry synced to Supabase with ID:', supabaseId);
         }
         break;
       }
@@ -215,10 +343,25 @@ export class DiaryDataService {
     }
   }
 
-  // Get entry by ID (local first)
+  // Get entry by ID (local first, with fallback search)
   async getEntryById(entryId) {
     try {
-      return await getDiaryEntryById(entryId);
+      console.log('DiaryDataService: Looking for entry with ID:', entryId);
+      
+      // First try direct lookup
+      let entry = await getDiaryEntryById(entryId);
+      
+      if (!entry) {
+        // If not found, try searching all entries (handles ID mismatches)
+        const allEntries = await getDiaryEntries();
+        entry = allEntries.find(e => 
+          String(e.id) === String(entryId) || 
+          (e.supabase_id && String(e.supabase_id) === String(entryId))
+        );
+        console.log('DiaryDataService: Searched all entries, found:', !!entry);
+      }
+      
+      return entry || null;
     } catch (error) {
       console.error('Error getting entry by ID:', error);
       return null;

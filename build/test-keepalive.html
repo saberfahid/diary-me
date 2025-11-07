@@ -1,0 +1,302 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Supabase Keepalive Test</title>
+    <style>
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+            max-width: 800px;
+            margin: 40px auto;
+            padding: 20px;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+        }
+        .container {
+            background: rgba(255, 255, 255, 0.1);
+            padding: 30px;
+            border-radius: 15px;
+            backdrop-filter: blur(10px);
+            border: 1px solid rgba(255, 255, 255, 0.2);
+        }
+        h1 {
+            text-align: center;
+            margin-bottom: 30px;
+        }
+        .test-section {
+            margin: 20px 0;
+            padding: 20px;
+            background: rgba(255, 255, 255, 0.1);
+            border-radius: 10px;
+            border: 1px solid rgba(255, 255, 255, 0.2);
+        }
+        button {
+            background: linear-gradient(45deg, #667eea, #764ba2);
+            border: none;
+            color: white;
+            padding: 12px 24px;
+            border-radius: 8px;
+            cursor: pointer;
+            font-size: 16px;
+            margin: 10px 5px;
+            transition: transform 0.2s;
+        }
+        button:hover {
+            transform: translateY(-2px);
+        }
+        button:disabled {
+            opacity: 0.6;
+            cursor: not-allowed;
+            transform: none;
+        }
+        .result {
+            margin: 15px 0;
+            padding: 15px;
+            border-radius: 8px;
+            border-left: 4px solid;
+        }
+        .success {
+            background: rgba(0, 255, 0, 0.1);
+            border-color: #00ff00;
+        }
+        .error {
+            background: rgba(255, 0, 0, 0.1);
+            border-color: #ff0000;
+        }
+        .info {
+            background: rgba(0, 123, 255, 0.1);
+            border-color: #007bff;
+        }
+        .metrics {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+            gap: 15px;
+            margin: 15px 0;
+        }
+        .metric {
+            background: rgba(255, 255, 255, 0.1);
+            padding: 15px;
+            border-radius: 8px;
+            text-align: center;
+        }
+        .metric-value {
+            font-size: 24px;
+            font-weight: bold;
+            margin-bottom: 5px;
+        }
+        .metric-label {
+            font-size: 12px;
+            opacity: 0.8;
+        }
+        pre {
+            background: rgba(0, 0, 0, 0.3);
+            padding: 15px;
+            border-radius: 8px;
+            overflow-x: auto;
+            font-size: 12px;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>🚀 Supabase Keepalive Test Dashboard</h1>
+        
+        <div class="test-section">
+            <h3>📡 Direct Supabase Test</h3>
+            <p>Test direct connection to Supabase database</p>
+            <button onclick="testSupabaseDirect()">Test Supabase Direct</button>
+            <div id="supabase-result"></div>
+        </div>
+
+        <div class="test-section">
+            <h3>⚡ Netlify Function Test</h3>
+            <p>Test the Netlify serverless keepalive function</p>
+            <button onclick="testNetlifyFunction()">Test Netlify Function</button>
+            <div id="netlify-result"></div>
+        </div>
+
+        <div class="test-section">
+            <h3>🔄 Auto-Test</h3>
+            <p>Continuous monitoring (runs every 30 seconds)</p>
+            <button onclick="startAutoTest()" id="auto-btn">Start Auto Test</button>
+            <div id="auto-result"></div>
+        </div>
+
+        <div class="test-section">
+            <h3>📊 Performance Metrics</h3>
+            <div class="metrics" id="metrics">
+                <div class="metric">
+                    <div class="metric-value" id="total-tests">0</div>
+                    <div class="metric-label">Total Tests</div>
+                </div>
+                <div class="metric">
+                    <div class="metric-value" id="success-rate">0%</div>
+                    <div class="metric-label">Success Rate</div>
+                </div>
+                <div class="metric">
+                    <div class="metric-value" id="avg-response">0ms</div>
+                    <div class="metric-label">Avg Response</div>
+                </div>
+                <div class="metric">
+                    <div class="metric-value" id="last-test">Never</div>
+                    <div class="metric-label">Last Test</div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        let testStats = {
+            total: 0,
+            successes: 0,
+            responseTimes: [],
+            autoTestInterval: null
+        };
+
+        // Supabase configuration
+        const SUPABASE_URL = 'https://jacjddyduizteupvbxop.supabase.co';
+        const SUPABASE_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImphY2pkZHlkdWl6dGV1cHZieG9wIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NjI0NDY5MTMsImV4cCI6MjA3ODAyMjkxM30.WExcCa9S7vRg4Y29b16AiE8BpIsypMGhnmWhR00D7Nw';
+
+        async function testSupabaseDirect() {
+            const resultDiv = document.getElementById('supabase-result');
+            const startTime = Date.now();
+            
+            resultDiv.innerHTML = '<div class="result info">🔄 Testing Supabase connection...</div>';
+
+            try {
+                const response = await fetch(`${SUPABASE_URL}/rest/v1/diary_entries?select=id&limit=1`, {
+                    headers: {
+                        'apikey': SUPABASE_KEY,
+                        'Authorization': `Bearer ${SUPABASE_KEY}`,
+                        'Content-Type': 'application/json'
+                    }
+                });
+
+                const responseTime = Date.now() - startTime;
+                const data = await response.json();
+
+                updateStats(response.ok, responseTime);
+
+                if (response.ok) {
+                    resultDiv.innerHTML = `
+                        <div class="result success">
+                            ✅ <strong>Success!</strong> Supabase is awake and responsive<br>
+                            📊 Response time: ${responseTime}ms<br>
+                            📦 Status: ${response.status}<br>
+                            🔢 Records accessible: ${Array.isArray(data) ? data.length : 'N/A'}
+                        </div>
+                    `;
+                } else {
+                    throw new Error(`HTTP ${response.status}: ${response.statusText}`);
+                }
+
+            } catch (error) {
+                const responseTime = Date.now() - startTime;
+                updateStats(false, responseTime);
+                
+                resultDiv.innerHTML = `
+                    <div class="result error">
+                        ❌ <strong>Failed!</strong> ${error.message}<br>
+                        ⏱️ Time: ${responseTime}ms
+                    </div>
+                `;
+            }
+        }
+
+        async function testNetlifyFunction() {
+            const resultDiv = document.getElementById('netlify-result');
+            const startTime = Date.now();
+            
+            resultDiv.innerHTML = '<div class="result info">🔄 Testing Netlify function...</div>';
+
+            try {
+                const response = await fetch('/.netlify/functions/keep-supabase-awake');
+                const responseTime = Date.now() - startTime;
+                const data = await response.json();
+
+                updateStats(response.ok, responseTime);
+
+                if (response.ok) {
+                    resultDiv.innerHTML = `
+                        <div class="result success">
+                            ✅ <strong>Function Success!</strong><br>
+                            📊 Response time: ${responseTime}ms<br>
+                            📦 Status: ${response.status}<br>
+                            📝 Function response:
+                            <pre>${JSON.stringify(data, null, 2)}</pre>
+                        </div>
+                    `;
+                } else {
+                    throw new Error(`HTTP ${response.status}: ${response.statusText}`);
+                }
+
+            } catch (error) {
+                const responseTime = Date.now() - startTime;
+                updateStats(false, responseTime);
+                
+                resultDiv.innerHTML = `
+                    <div class="result error">
+                        ❌ <strong>Function Failed!</strong> ${error.message}<br>
+                        ⏱️ Time: ${responseTime}ms<br>
+                        💡 Note: Function might not be deployed yet
+                    </div>
+                `;
+            }
+        }
+
+        function startAutoTest() {
+            const btn = document.getElementById('auto-btn');
+            const resultDiv = document.getElementById('auto-result');
+
+            if (testStats.autoTestInterval) {
+                clearInterval(testStats.autoTestInterval);
+                testStats.autoTestInterval = null;
+                btn.textContent = 'Start Auto Test';
+                resultDiv.innerHTML = '<div class="result info">🛑 Auto-test stopped</div>';
+                return;
+            }
+
+            btn.textContent = 'Stop Auto Test';
+            resultDiv.innerHTML = '<div class="result success">🚀 Auto-test started (every 30 seconds)</div>';
+
+            testStats.autoTestInterval = setInterval(async () => {
+                console.log('🔄 Running automatic keepalive test...');
+                await testSupabaseDirect();
+                
+                const now = new Date().toLocaleTimeString();
+                resultDiv.innerHTML = `
+                    <div class="result success">
+                        ✅ Auto-test running...<br>
+                        🕐 Last run: ${now}<br>
+                        📊 Total tests: ${testStats.total}
+                    </div>
+                `;
+            }, 30000);
+        }
+
+        function updateStats(success, responseTime) {
+            testStats.total++;
+            if (success) testStats.successes++;
+            testStats.responseTimes.push(responseTime);
+
+            // Update metrics display
+            document.getElementById('total-tests').textContent = testStats.total;
+            document.getElementById('success-rate').textContent = 
+                Math.round((testStats.successes / testStats.total) * 100) + '%';
+            
+            const avgResponse = Math.round(
+                testStats.responseTimes.reduce((a, b) => a + b, 0) / testStats.responseTimes.length
+            );
+            document.getElementById('avg-response').textContent = avgResponse + 'ms';
+            document.getElementById('last-test').textContent = new Date().toLocaleTimeString();
+        }
+
+        // Initialize with a welcome test
+        window.onload = function() {
+            console.log('🎉 Supabase Keepalive Test Dashboard loaded');
+            console.log('💡 Use this dashboard to test your keepalive functions');
+        };
+    </script>
+</body>
+</html>
