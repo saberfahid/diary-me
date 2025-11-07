@@ -18,22 +18,22 @@ jobs:
         # 1. Ping your main site to wake up the frontend
         echo "📱 Pinging main site..."
         SITE_STATUS=$(curl -s -o /dev/null -w "%{http_code}" \
-          "https://bejewelled-salamander-08452f.netlify.app" || echo "000")
+          "https://delicate-duckanoo-0af0ad.netlify.app" || echo "000")
         echo "Site status: $SITE_STATUS"
         
         # 2. Try to access the site with specific paths that might trigger database calls
         echo "🔄 Triggering potential database activity..."
         
         # Ping the root page (might trigger initial data load)
-        curl -s "https://bejewelled-salamander-08452f.netlify.app/" > /dev/null
+        curl -s "https://delicate-duckanoo-0af0ad.netlify.app/" > /dev/null
         
         # Try to access potential API routes or trigger client-side database calls
-        curl -s "https://bejewelled-salamander-08452f.netlify.app/static/js/main.db634726.js" > /dev/null
+        curl -s "https://delicate-duckanoo-0af0ad.netlify.app/static/js/main.55f3dac7.js" > /dev/null
         
         # 3. Multiple pings to ensure consistent activity
         for i in {1..3}; do
           echo "Ping attempt $i/3"
-          curl -s "https://bejewelled-salamander-08452f.netlify.app/?keepalive=$i" > /dev/null
+          curl -s "https://delicate-duckanoo-0af0ad.netlify.app/?keepalive=$i" > /dev/null
           sleep 2
         done
         
@@ -44,6 +44,6 @@ jobs:
       run: |
         echo "📊 Keepalive Summary:"
         echo "Time: $(date -u)"
-        echo "Target: bejewelled-salamander-08452f.netlify.app"
+        echo "Target: delicate-duckanoo-0af0ad.netlify.app"
         echo "Strategy: Multi-ping approach to maintain site activity"
         echo "Frequency: Every 10 minutes"

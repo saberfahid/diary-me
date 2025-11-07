@@ -21,3 +21,11 @@ export async function getDiaryEntriesByDate(date) {
 export async function deleteDiaryEntry(id) {
   return db.entries.delete(id);
 }
+
+export async function updateDiaryEntry(id, entry) {
+  return db.entries.update(id, entry);
+}
+
+export async function getDiaryEntryById(id) {
+  return db.entries.get(id);
+}

@@ -1,8 +1,7 @@
-import React, { useState } from 'react';
-import { saveDiaryEntryToSupabase, updateDiaryEntryInSupabase } from '../dbSupabase';
-import { saveDiaryEntry } from '../db';
+import React, { useState, useEffect } from 'react';
 import { useSupabaseUser } from '../useSupabaseUser';
 import { uploadImageToSupabase, deleteImageFromSupabase } from '../uploadImageSupabase';
+import { DiaryDataService } from '../DiaryDataService';
 
 const moods = [
   { icon: '😊', label: 'Happy' },
@@ -23,55 +22,85 @@ function DiaryEditor(props) {
   const [imageFile, setImageFile] = useState(null);
   const [content, setContent] = useState(initial.content || '');
   const [error, setError] = useState('');
+  const [isSaving, setIsSaving] = useState(false);
   const user = useSupabaseUser();
+  const [dataService, setDataService] = useState(null);
+
+  useEffect(() => {
+    if (user?.id) {
+      setDataService(new DiaryDataService(user.id));
+    }
+  }, [user?.id]);
 
   const handleSave = async () => {
     if (!title || !content) {
       setError('Please fill in both Title and Content to save your entry.');
       return;
     }
-    setError('');
-    let imageUrl = image;
-    if (imageFile && user && user.id) {
-      const { url, error: uploadError } = await uploadImageToSupabase(imageFile, user.id);
-      if (uploadError) {
-        setError('Failed to upload image: ' + uploadError.message);
-        return;
-      }
-      imageUrl = url;
+    
+    if (!dataService) {
+      setError('Data service not initialized. Please try again.');
+      return;
     }
-    const entryData = {
-      title,
-      content,
-      mood,
-      tags: tags.split(',').map(t => t.trim()),
-      date,
-      image: imageUrl,
-      created: initial.created || Date.now(),
-    };
-    if (user && user.id) {
-      let supabaseError;
+
+    setError('');
+    setIsSaving(true);
+
+    try {
+      let imageUrl = image;
       
+      // Upload image if new file selected
+      if (imageFile && user && user.id) {
+        const { url, error: uploadError } = await uploadImageToSupabase(imageFile, user.id);
+        if (uploadError) {
+          setError('Failed to upload image: ' + uploadError.message);
+          setIsSaving(false);
+          return;
+        }
+        imageUrl = url;
+      }
+
+      const entryData = {
+        title,
+        content,
+        mood,
+        tags: tags.split(',').map(t => t.trim()),
+        date,
+        image: imageUrl,
+        created: initial.created || Date.now(),
+      };
+
+      let result;
       if (initial.id) {
         // Update existing entry
-        const { error } = await updateDiaryEntryInSupabase(entryData, user.id, initial.id);
-        supabaseError = error;
+        result = await dataService.updateEntry(initial.id, entryData);
       } else {
         // Create new entry
-        const { error } = await saveDiaryEntryToSupabase(entryData, user.id);
-        supabaseError = error;
+        result = await dataService.saveEntry(entryData);
       }
-      
-      if (supabaseError) {
-        setError('Failed to save diary entry: ' + supabaseError.message);
-        return;
+
+      if (result.success) {
+        // Clear form for new entries
+        if (!initial.id) {
+          setTitle('');
+          setContent('');
+          setImage(null);
+          setImageFile(null);
+          setTags('');
+          setMood(moods[0].icon);
+          setDate(new Date().toISOString().slice(0, 10));
+        }
+        
+        if (typeof props.onSave === 'function') {
+          props.onSave();
+        }
+      } else {
+        setError('Failed to save entry: ' + (result.error?.message || 'Unknown error'));
       }
-      
-      // Save locally as well
-      await saveDiaryEntry(entryData);
-      if (typeof props.onSave === 'function') props.onSave();
-    } else {
-      setError('You must be logged in to save entries.');
+    } catch (error) {
+      setError('Failed to save entry: ' + error.message);
+    } finally {
+      setIsSaving(false);
     }
   };
 
@@ -165,10 +194,15 @@ function DiaryEditor(props) {
         onChange={e => setContent(e.target.value)}
       />
       <button
-        className="bg-blue-600 text-white px-4 py-2 rounded shadow hover:bg-blue-700 text-sm font-semibold w-full"
+        className={`px-4 py-2 rounded shadow text-sm font-semibold w-full transition-colors ${
+          isSaving 
+            ? 'bg-gray-400 text-gray-700 cursor-not-allowed' 
+            : 'bg-blue-600 text-white hover:bg-blue-700'
+        }`}
         onClick={handleSave}
+        disabled={isSaving}
       >
-        Save Entry
+        {isSaving ? 'Saving...' : (initial.id ? 'Update Entry' : 'Save Entry')}
       </button>
     </div>
   );

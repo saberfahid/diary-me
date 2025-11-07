@@ -3,7 +3,7 @@ import BuyMeACoffee from './BuyMeACoffee';
 import DiaryEditor from './DiaryEditor';
 import React from 'react';
 import { useParams, useNavigate, useLocation } from 'react-router-dom';
-import { getDiaryEntriesFromSupabase } from '../dbSupabase';
+import DiaryDataService from '../DiaryDataService';
 import { useSupabaseUser } from '../useSupabaseUser';
 function EntryPage() {
   const { id } = useParams();
@@ -11,15 +11,29 @@ function EntryPage() {
   const location = useLocation();
   const [entry, setEntry] = React.useState(null);
   const [editing, setEditing] = React.useState(false);
+  const [loading, setLoading] = React.useState(true);
   const user = useSupabaseUser();
 
   React.useEffect(() => {
-    if (user && user.id) {
-      getDiaryEntriesFromSupabase(user.id).then(({ data }) => {
-        const found = (data || []).find(e => String(e.id) === String(id));
-        setEntry(found || null);
-      });
-    }
+    let diaryService;
+    
+    const loadEntry = async () => {
+      if (user && user.id) {
+        try {
+          diaryService = new DiaryDataService(user.id);
+          await diaryService.initialize();
+          const entries = await diaryService.getAllEntries();
+          const found = entries.find(e => String(e.id) === String(id));
+          setEntry(found || null);
+        } catch (error) {
+          console.error('Error loading entry:', error);
+          setEntry(null);
+        }
+      }
+      setLoading(false);
+    };
+
+    loadEntry();
   }, [id, user]);
 
   React.useEffect(() => {
@@ -27,6 +41,19 @@ function EntryPage() {
       setEditing(true);
     }
   }, [location.search]);
+
+  if (loading) {
+    return (
+      <div className="min-h-screen flex items-center justify-center">
+        <div className="bg-white rounded shadow p-10 text-center w-full max-w-3xl mx-auto text-lg">
+          <div className="flex items-center justify-center">
+            <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-600 mr-3"></div>
+            <p className="text-base text-gray-700">Loading entry...</p>
+          </div>
+        </div>
+      </div>
+    );
+  }
 
   if (!entry) {
     return (
@@ -50,7 +77,10 @@ function EntryPage() {
           <h2 className="text-xl font-bold mb-4 text-blue-700 text-center">Edit Entry</h2>
           <DiaryEditor
             initialEntry={entry}
-            onSave={() => { setEditing(false); navigate(0); }}
+            onSave={(updatedEntry) => { 
+              setEntry(updatedEntry);
+              setEditing(false); 
+            }}
           />
         </div>
       </div>

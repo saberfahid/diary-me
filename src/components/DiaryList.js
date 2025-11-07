@@ -1,24 +1,56 @@
 import React, { useEffect, useState } from 'react';
 import { DragDropContext, Droppable, Draggable } from 'react-beautiful-dnd';
 import BuyMeACoffee from './BuyMeACoffee';
-import { getDiaryEntriesFromSupabase, deleteDiaryEntryFromSupabase } from '../dbSupabase';
 import { useSupabaseUser } from '../useSupabaseUser';
 import { Link } from 'react-router-dom';
 import { Document, Packer, Paragraph, HeadingLevel, ImageRun } from 'docx';
-import { deleteImageFromSupabase } from '../uploadImageSupabase';
+import { DiaryDataService } from '../DiaryDataService';
 
 function DiaryList(props) {
   const [entries, setEntries] = useState([]);
   const [search, setSearch] = useState('');
+  const [isLoading, setIsLoading] = useState(true);
+  const [dataService, setDataService] = useState(null);
   const user = useSupabaseUser();
 
+  // Initialize data service when user is available
   useEffect(() => {
-    if (user && user.id) {
-      getDiaryEntriesFromSupabase(user.id).then(({ data }) => {
-        setEntries(data || []);
-      });
+    if (user?.id) {
+      const service = new DiaryDataService(user.id);
+      setDataService(service);
+      loadEntries(service);
     }
-  }, [props.refresh, user]);
+  }, [user?.id]);
+
+  // Load entries and sync with Supabase
+  const loadEntries = async (service = dataService) => {
+    if (!service) return;
+    
+    setIsLoading(true);
+    try {
+      // Load from local database first (fast)
+      const localEntries = await service.getEntries();
+      setEntries(localEntries);
+      
+      // Sync with Supabase in background
+      await service.syncWithSupabase();
+      
+      // Reload after sync
+      const updatedEntries = await service.getEntries();
+      setEntries(updatedEntries);
+    } catch (error) {
+      console.error('Error loading entries:', error);
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
+  // Reload entries when refresh prop changes
+  useEffect(() => {
+    if (dataService && props.refresh) {
+      loadEntries();
+    }
+  }, [props.refresh]);
 
   // Filter entries
   const filtered = entries.filter(entry => {
@@ -32,30 +64,30 @@ function DiaryList(props) {
   };
 
   // Delete entry function
-  const handleDeleteEntry = async (entryId, imageUrl) => {
+  const handleDeleteEntry = async (entryId) => {
     if (!window.confirm('Are you sure you want to delete this diary entry? This action cannot be undone.')) {
       return;
     }
 
+    if (!dataService) {
+      alert('Data service not available. Please try again.');
+      return;
+    }
+
     try {
-      // Delete image from storage if exists
-      if (imageUrl && imageUrl.startsWith('http')) {
-        await deleteImageFromSupabase(imageUrl);
-      }
+      // Delete using data service (local first, then sync)
+      const result = await dataService.deleteEntry(entryId);
       
-      // Delete entry from database
-      const { error } = await deleteDiaryEntryFromSupabase(entryId, user.id);
-      if (error) {
-        alert('Failed to delete entry: ' + error.message);
-        return;
-      }
-      
-      // Update local state
-      setEntries(prevEntries => prevEntries.filter(entry => entry.id !== entryId));
-      
-      // Trigger refresh if callback provided
-      if (typeof props.onRefresh === 'function') {
-        props.onRefresh();
+      if (result.success) {
+        // Update local state immediately
+        setEntries(prevEntries => prevEntries.filter(entry => entry.id !== entryId));
+        
+        // Trigger refresh if callback provided
+        if (typeof props.onRefresh === 'function') {
+          props.onRefresh();
+        }
+      } else {
+        alert('Failed to delete entry: ' + (result.error?.message || 'Unknown error'));
       }
     } catch (err) {
       alert('Error deleting entry: ' + err.message);
@@ -203,6 +235,19 @@ function DiaryList(props) {
     URL.revokeObjectURL(url);
   };
 
+  if (isLoading) {
+    return (
+      <div className="backdrop-blur-lg bg-white/80 rounded-2xl shadow-2xl p-4 w-full max-w-full" style={{boxSizing: 'border-box', padding: '16px', maxWidth: '100vw'}}>
+        <div className="flex items-center justify-center py-8">
+          <div className="text-center">
+            <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-500 mx-auto mb-2"></div>
+            <p className="text-blue-600 font-medium">Loading your diary entries...</p>
+          </div>
+        </div>
+      </div>
+    );
+  }
+
   return (
   <div className="backdrop-blur-lg bg-white/80 rounded-2xl shadow-2xl p-4 w-full max-w-full overflow-y-auto scrollbar-thin scrollbar-thumb-blue-200 scrollbar-track-white/40" style={{boxSizing: 'border-box', padding: '16px', maxWidth: '100vw'}}>
   <div className="flex flex-col sm:flex-row items-center justify-center mb-8 gap-2">
@@ -274,7 +319,7 @@ function DiaryList(props) {
                                   <button
                                     onClick={(e) => {
                                       e.stopPropagation();
-                                      handleDeleteEntry(entry.id, entry.image);
+                                      handleDeleteEntry(entry.id);
                                     }}
                                     className="flex items-center justify-center px-2 py-1 rounded-full bg-red-200 text-red-700 font-bold shadow hover:bg-red-300 transition-all duration-200 text-xs sm:text-sm"
                                     style={{ lineHeight: 1, minWidth: 0, maxWidth: '40px', wordBreak: 'break-word' }}

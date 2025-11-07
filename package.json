@@ -2,6 +2,7 @@
   "name": "diaryme.top",
   "version": "1.0.0",
   "private": true,
+  "homepage": ".",
   "dependencies": {
     "@supabase/supabase-js": "^2.80.0",
     "@tailwindcss/typography": "^0.5.16",
