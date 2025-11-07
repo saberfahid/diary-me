@@ -1,8 +1,8 @@
 import React, { useState } from 'react';
-import { saveDiaryEntryToSupabase } from '../dbSupabase';
+import { saveDiaryEntryToSupabase, updateDiaryEntryInSupabase } from '../dbSupabase';
 import { saveDiaryEntry } from '../db';
 import { useSupabaseUser } from '../useSupabaseUser';
-import { uploadImageToSupabase } from '../uploadImageSupabase';
+import { uploadImageToSupabase, deleteImageFromSupabase } from '../uploadImageSupabase';
 
 const moods = [
   { icon: '😊', label: 'Happy' },
@@ -50,12 +50,23 @@ function DiaryEditor(props) {
       created: initial.created || Date.now(),
     };
     if (user && user.id) {
-      // Save to Supabase
-      const { error } = await saveDiaryEntryToSupabase(entryData, user.id);
-      if (error) {
-        setError('Failed to save diary entry: ' + error.message);
+      let supabaseError;
+      
+      if (initial.id) {
+        // Update existing entry
+        const { error } = await updateDiaryEntryInSupabase(entryData, user.id, initial.id);
+        supabaseError = error;
+      } else {
+        // Create new entry
+        const { error } = await saveDiaryEntryToSupabase(entryData, user.id);
+        supabaseError = error;
+      }
+      
+      if (supabaseError) {
+        setError('Failed to save diary entry: ' + supabaseError.message);
         return;
       }
+      
       // Save locally as well
       await saveDiaryEntry(entryData);
       if (typeof props.onSave === 'function') props.onSave();
@@ -72,6 +83,18 @@ function DiaryEditor(props) {
       reader.onload = () => setImage(reader.result);
       reader.readAsDataURL(file);
     }
+  };
+
+  const handleImageRemove = async () => {
+    if (image && image.startsWith('http') && user && user.id) {
+      // If it's a Supabase URL, delete from storage
+      const { error } = await deleteImageFromSupabase(image);
+      if (error) {
+        console.error('Failed to delete image from storage:', error);
+      }
+    }
+    setImage(null);
+    setImageFile(null);
   };
 
   return (
@@ -123,7 +146,18 @@ function DiaryEditor(props) {
           onChange={handleImageChange}
         />
       </label>
-      {image && <img src={image} alt="Diary" className="mb-2 max-h-32 rounded" />}
+      {image && (
+        <div className="mb-2 relative">
+          <img src={image} alt="Diary" className="max-h-32 rounded w-full object-cover" />
+          <button
+            onClick={handleImageRemove}
+            className="absolute top-1 right-1 bg-red-500 text-white rounded-full w-6 h-6 flex items-center justify-center text-xs hover:bg-red-600"
+            title="Remove image"
+          >
+            ×
+          </button>
+        </div>
+      )}
       <textarea
         className="border rounded p-2 mb-2 min-h-[100px] w-full font-mono resize-vertical"
         placeholder="Write your diary entry in Markdown..."

@@ -29,7 +29,7 @@ function App() {
     const keepalive = async () => {
       try {
         // Perform lightweight database query to keep Supabase awake
-        const { data, error } = await supabase
+        const { data } = await supabase
           .from('diary_entries')
           .select('id')
           .limit(1);
@@ -56,7 +56,7 @@ function App() {
     const loggedInKeepalive = async () => {
       try {
         // More comprehensive keepalive for logged-in users
-        const { data, error } = await supabase
+        const { data } = await supabase
           .from('diary_entries')
           .select('id')
           .limit(1);

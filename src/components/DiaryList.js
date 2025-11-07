@@ -1,10 +1,11 @@
 import React, { useEffect, useState } from 'react';
 import { DragDropContext, Droppable, Draggable } from 'react-beautiful-dnd';
 import BuyMeACoffee from './BuyMeACoffee';
-import { getDiaryEntriesFromSupabase } from '../dbSupabase';
+import { getDiaryEntriesFromSupabase, deleteDiaryEntryFromSupabase } from '../dbSupabase';
 import { useSupabaseUser } from '../useSupabaseUser';
 import { Link } from 'react-router-dom';
 import { Document, Packer, Paragraph, HeadingLevel, ImageRun } from 'docx';
+import { deleteImageFromSupabase } from '../uploadImageSupabase';
 
 function DiaryList(props) {
   const [entries, setEntries] = useState([]);
@@ -28,6 +29,37 @@ function DiaryList(props) {
   // Handler for drag end (to be implemented)
   const onDragEnd = result => {
     // Placeholder: will implement reordering logic later
+  };
+
+  // Delete entry function
+  const handleDeleteEntry = async (entryId, imageUrl) => {
+    if (!window.confirm('Are you sure you want to delete this diary entry? This action cannot be undone.')) {
+      return;
+    }
+
+    try {
+      // Delete image from storage if exists
+      if (imageUrl && imageUrl.startsWith('http')) {
+        await deleteImageFromSupabase(imageUrl);
+      }
+      
+      // Delete entry from database
+      const { error } = await deleteDiaryEntryFromSupabase(entryId, user.id);
+      if (error) {
+        alert('Failed to delete entry: ' + error.message);
+        return;
+      }
+      
+      // Update local state
+      setEntries(prevEntries => prevEntries.filter(entry => entry.id !== entryId));
+      
+      // Trigger refresh if callback provided
+      if (typeof props.onRefresh === 'function') {
+        props.onRefresh();
+      }
+    } catch (err) {
+      alert('Error deleting entry: ' + err.message);
+    }
   };
 
   // Download all entries as Word
@@ -239,7 +271,17 @@ function DiaryList(props) {
                                   >
                                     <span>✏️</span>
                                   </Link>
-                                  {/* TODO: Implement delete logic for Supabase entries */}
+                                  <button
+                                    onClick={(e) => {
+                                      e.stopPropagation();
+                                      handleDeleteEntry(entry.id, entry.image);
+                                    }}
+                                    className="flex items-center justify-center px-2 py-1 rounded-full bg-red-200 text-red-700 font-bold shadow hover:bg-red-300 transition-all duration-200 text-xs sm:text-sm"
+                                    style={{ lineHeight: 1, minWidth: 0, maxWidth: '40px', wordBreak: 'break-word' }}
+                                    title="Delete entry"
+                                  >
+                                    <span>🗑️</span>
+                                  </button>
                                   <span>
                                     <BuyMeACoffee />
                                   </span>
