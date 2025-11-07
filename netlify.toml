@@ -1,0 +1,11 @@
+# Netlify Configuration File
+# This tells Netlify where to find functions and how to build
+
+[build]
+  publish = "build"
+  functions = "netlify/functions"
+
+[[redirects]]
+  from = "/*"
+  to = "/index.html"
+  status = 200
