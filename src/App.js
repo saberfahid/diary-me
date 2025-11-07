@@ -20,6 +20,21 @@ function App() {
     localStorage.removeItem('diary_last_written');
   };
 
+  // Handle auth state changes (including after signup with email confirmation disabled)
+  useEffect(() => {
+    const { data: { subscription } } = supabase.auth.onAuthStateChange((event, session) => {
+      if (session?.user) {
+        setLoggedIn(true);
+        localStorage.setItem('diary_logged_in', 'true');
+      } else if (event === 'SIGNED_OUT') {
+        setLoggedIn(false);
+        localStorage.setItem('diary_logged_in', 'false');
+      }
+    });
+
+    return () => subscription.unsubscribe();
+  }, []);
+
   useEffect(() => {
     localStorage.setItem('diary_logged_in', loggedIn ? 'true' : 'false');
   }, [loggedIn]);

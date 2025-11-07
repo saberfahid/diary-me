@@ -28,7 +28,7 @@ jobs:
         curl -s "https://delicate-duckanoo-0af0ad.netlify.app/" > /dev/null
         
         # Try to access potential API routes or trigger client-side database calls
-        curl -s "https://delicate-duckanoo-0af0ad.netlify.app/static/js/main.55f3dac7.js" > /dev/null
+        curl -s "https://delicate-duckanoo-0af0ad.netlify.app/static/js/main.ee58a60c.js" > /dev/null
         
         # 3. Multiple pings to ensure consistent activity
         for i in {1..3}; do

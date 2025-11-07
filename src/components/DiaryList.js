@@ -4,7 +4,7 @@ import BuyMeACoffee from './BuyMeACoffee';
 import { useSupabaseUser } from '../useSupabaseUser';
 import { Link } from 'react-router-dom';
 import { Document, Packer, Paragraph, HeadingLevel, ImageRun } from 'docx';
-import { DiaryDataService } from '../DiaryDataService';
+import DiaryDataService from '../DiaryDataService';
 
 function DiaryList(props) {
   const [entries, setEntries] = useState([]);
@@ -15,11 +15,21 @@ function DiaryList(props) {
 
   // Initialize data service when user is available
   useEffect(() => {
-    if (user?.id) {
-      const service = new DiaryDataService(user.id);
-      setDataService(service);
-      loadEntries(service);
-    }
+    const initializeService = async () => {
+      if (user?.id) {
+        try {
+          const service = new DiaryDataService(user.id);
+          await service.initialize();
+          setDataService(service);
+          loadEntries(service);
+        } catch (error) {
+          console.error('Error initializing data service:', error);
+          setIsLoading(false);
+        }
+      }
+    };
+    
+    initializeService();
   }, [user?.id]);
 
   // Load entries and sync with Supabase

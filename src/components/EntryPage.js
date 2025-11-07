@@ -15,26 +15,43 @@ function EntryPage() {
   const user = useSupabaseUser();
 
   React.useEffect(() => {
-    let diaryService;
-    
     const loadEntry = async () => {
-      if (user && user.id) {
-        try {
-          diaryService = new DiaryDataService(user.id);
-          await diaryService.initialize();
-          const entries = await diaryService.getAllEntries();
-          const found = entries.find(e => String(e.id) === String(id));
-          setEntry(found || null);
-        } catch (error) {
-          console.error('Error loading entry:', error);
-          setEntry(null);
+      if (!user?.id || !id) {
+        setLoading(false);
+        return;
+      }
+
+      try {
+        const diaryService = new DiaryDataService(user.id);
+        await diaryService.initialize();
+        
+        // Try to get the specific entry first
+        let foundEntry = await diaryService.getEntryById(id);
+        
+        // If not found locally, sync with Supabase and try again
+        if (!foundEntry) {
+          console.log('Entry not found locally, syncing with Supabase...');
+          await diaryService.syncWithSupabase();
+          foundEntry = await diaryService.getEntryById(id);
         }
+        
+        // Last resort: load all entries and find by ID
+        if (!foundEntry) {
+          console.log('Still not found, searching all entries...');
+          const allEntries = await diaryService.getEntries();
+          foundEntry = allEntries.find(e => String(e.id) === String(id));
+        }
+        
+        setEntry(foundEntry || null);
+      } catch (error) {
+        console.error('Error loading entry:', error);
+        setEntry(null);
       }
       setLoading(false);
     };
 
     loadEntry();
-  }, [id, user]);
+  }, [id, user?.id]);
 
   React.useEffect(() => {
     if (location.search.includes('edit=true')) {
@@ -59,8 +76,22 @@ function EntryPage() {
     return (
       <div className="min-h-screen flex items-center justify-center">
         <div className="bg-white rounded shadow p-10 text-center w-full max-w-3xl mx-auto text-lg">
-          <p className="text-base text-gray-700">Entry not found.</p>
-          <button className="mt-4 px-4 py-2 bg-blue-600 text-white rounded shadow" onClick={() => navigate(-1)}>Go Back</button>
+          <p className="text-base text-gray-700 mb-2">Entry not found.</p>
+          <p className="text-sm text-gray-500 mb-4">The entry with ID "{id}" could not be loaded.</p>
+          <div className="flex gap-2 justify-center">
+            <button 
+              className="px-4 py-2 bg-blue-600 text-white rounded shadow hover:bg-blue-700" 
+              onClick={() => navigate('/')}
+            >
+              Go to Home
+            </button>
+            <button 
+              className="px-4 py-2 bg-gray-600 text-white rounded shadow hover:bg-gray-700" 
+              onClick={() => navigate(-1)}
+            >
+              Go Back
+            </button>
+          </div>
         </div>
       </div>
     );
@@ -117,6 +148,32 @@ function EntryPage() {
             onClick={() => setEditing(true)}
           >
             Edit Entry
+          </button>
+          <button
+            className="bg-red-500 text-white px-3 py-1 rounded shadow text-sm font-semibold hover:bg-red-600"
+            onClick={async () => {
+              if (!window.confirm('Are you sure you want to delete this diary entry? This action cannot be undone.')) {
+                return;
+              }
+              
+              try {
+                const diaryService = new DiaryDataService(user.id);
+                await diaryService.initialize();
+                const result = await diaryService.deleteEntry(entry.id);
+                
+                if (result.success) {
+                  // Navigate back to home after successful deletion
+                  navigate('/', { replace: true });
+                } else {
+                  alert('Failed to delete entry: ' + (result.error?.message || 'Unknown error'));
+                }
+              } catch (error) {
+                console.error('Error deleting entry:', error);
+                alert('Error deleting entry: ' + error.message);
+              }
+            }}
+          >
+            Delete Entry
           </button>
           <BuyMeACoffee inline />
         </div>

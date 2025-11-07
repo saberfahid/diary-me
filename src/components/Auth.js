@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { supabase } from '../supabaseClient';
+import { supabase } from './supabaseClient';
 
 export default function Auth({ onAuth }) {
   const [email, setEmail] = useState('');
@@ -13,8 +13,20 @@ export default function Auth({ onAuth }) {
     setLoading(true);
     const { error } = await supabase.auth.signUp({ email, password });
     setLoading(false);
-    if (error) setError(error.message);
-    else {
+    
+    if (error) {
+      setError(error.message);
+      return;
+    }
+    
+    // Check if email confirmation is disabled (user has session immediately)
+    const { data: { session } } = await supabase.auth.getSession();
+    
+    if (session) {
+      // Email confirmation is disabled, user is automatically logged in
+      onAuth();
+    } else {
+      // Email confirmation is required
       setConfirmationSent(true);
       setError('');
     }
@@ -38,7 +50,7 @@ export default function Auth({ onAuth }) {
         </p>
         {confirmationSent && (
           <div className="bg-pink-100 border border-pink-300 rounded-xl p-3 mb-2 text-center text-pink-700 text-sm">
-            Please check your email and click the confirmation link before logging in.
+            Account created! Please check your email and click the confirmation link, then log in with your credentials.
           </div>
         )}
         <input
