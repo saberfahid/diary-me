@@ -1,8 +1,10 @@
 User-agent: *
 Allow: /
 
-# Sitemap location
+# Sitemap locations
+Sitemap: https://delicate-duckanoo-0af0ad.netlify.app/sitemap-index.xml
 Sitemap: https://delicate-duckanoo-0af0ad.netlify.app/sitemap.xml
+Sitemap: https://delicate-duckanoo-0af0ad.netlify.app/sitemap-mobile.xml
 
 # Block admin/private areas (if any exist in future)
 Disallow: /admin/
