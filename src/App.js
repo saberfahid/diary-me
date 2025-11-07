@@ -24,10 +24,8 @@ function App() {
     localStorage.setItem('diary_logged_in', loggedIn ? 'true' : 'false');
   }, [loggedIn]);
 
-  // Supabase keepalive system
+  // Supabase keepalive system (works for all visitors)
   useEffect(() => {
-    if (!loggedIn) return;
-
     const keepalive = async () => {
       try {
         // Perform lightweight database query to keep Supabase awake
@@ -42,11 +40,35 @@ function App() {
       }
     };
 
-    // Initial keepalive
+    // Initial keepalive for any visitor (logged in or not)
     keepalive();
     
     // Set up interval for keepalive (every 5 minutes when user is active)
     const interval = setInterval(keepalive, 5 * 60 * 1000);
+    
+    return () => clearInterval(interval);
+  }, []); // Removed loggedIn dependency - now runs for all visitors
+
+  // Additional logged-in user keepalive (more frequent for active users)
+  useEffect(() => {
+    if (!loggedIn) return;
+
+    const loggedInKeepalive = async () => {
+      try {
+        // More comprehensive keepalive for logged-in users
+        const { data, error } = await supabase
+          .from('diary_entries')
+          .select('id')
+          .limit(1);
+        
+        console.log('Logged-in user keepalive:', { count: data?.length || 0 });
+      } catch (err) {
+        console.log('Logged-in keepalive error:', err.message);
+      }
+    };
+
+    // More frequent keepalive for active users (every 3 minutes)
+    const interval = setInterval(loggedInKeepalive, 3 * 60 * 1000);
     
     return () => clearInterval(interval);
   }, [loggedIn]);

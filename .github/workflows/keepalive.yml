@@ -1,10 +1,10 @@
 name: Supabase Keepalive
 
 on:
-  schedule:
-    # Run every 10 minutes (GitHub Actions has a 5-minute minimum for scheduled workflows)
-    - cron: '*/10 * * * *'
-  workflow_dispatch: # Allow manual triggering for testing
+  # Disabled - function endpoint not working, use simple-keepalive.yml instead
+  # schedule:
+  #   - cron: '*/10 * * * *'
+  workflow_dispatch: # Allow manual triggering for testing only
 
 jobs:
   keepalive:
@@ -28,9 +28,9 @@ jobs:
         
         # Check if the request was successful
         if [ "$HTTP_CODE" = "200" ]; then
-          echo "‚ú?Keepalive successful"
+          echo "ÔøΩ?Keepalive successful"
         else
-          echo "‚ù?Keepalive failed with status $HTTP_CODE"
+          echo "ÔøΩ?Keepalive failed with status $HTTP_CODE"
           echo "Response: $BODY"
           # Don't fail the workflow for keepalive failures - just log them
         fi

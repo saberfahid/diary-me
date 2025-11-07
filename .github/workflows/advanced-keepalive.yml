@@ -1,9 +1,9 @@
 name: Advanced Supabase Keepalive
 
 on:
-  schedule:
-    # Run every 8 minutes to ensure Supabase stays active
-    - cron: '*/8 * * * *'
+  # Disabled - function endpoint not working, use simple-keepalive.yml instead  
+  # schedule:
+  #   - cron: '*/8 * * * *'
   workflow_dispatch:
     inputs:
       test_mode:
@@ -47,7 +47,7 @@ jobs:
           echo "üìä Status: $HTTP_CODE | Time: ${TIME_TAKEN}s"
           
           if [ "$HTTP_CODE" = "200" ]; then
-            echo "‚ú?Success! Response: $BODY"
+            echo "ÔøΩ?Success! Response: $BODY"
             SUCCESS=true
             
             # Parse JSON response if possible
@@ -56,11 +56,11 @@ jobs:
             fi
             break
           else
-            echo "‚ù?Failed with status $HTTP_CODE"
+            echo "ÔøΩ?Failed with status $HTTP_CODE"
             echo "Response: $BODY"
             
             if [ $i -lt ${{ env.MAX_RETRIES }} ]; then
-              echo "‚è?Waiting ${{ env.RETRY_DELAY }} seconds before retry..."
+              echo "ÔøΩ?Waiting ${{ env.RETRY_DELAY }} seconds before retry..."
               sleep ${{ env.RETRY_DELAY }}
             fi
           fi

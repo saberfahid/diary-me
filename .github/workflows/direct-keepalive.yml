@@ -1,9 +1,9 @@
 name: Direct Supabase Keepalive
 
 on:
-  schedule:
-    # Run every 8 minutes to keep Supabase awake
-    - cron: '*/8 * * * *'
+  # Disabled - requires Supabase secrets setup, use simple-keepalive.yml instead
+  # schedule:
+  #   - cron: '*/8 * * * *'
   workflow_dispatch: # Allow manual triggering
 
 env:
