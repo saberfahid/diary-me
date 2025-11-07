@@ -1,6 +1,6 @@
 # Netlify configuration for DiaryMe app with Supabase keepalive
 
-# Pre-built deployment with cute landing page
+# Pre-built deployment with fixed sitemap headers
 [build]
   publish = "."
 
@@ -36,3 +36,15 @@
   for = "*.js"
   [headers.values]
     Cache-Control = "public, max-age=31536000, immutable"
+
+[[headers]]
+  for = "*.xml"
+  [headers.values]
+    Content-Type = "application/xml; charset=utf-8"
+    Cache-Control = "public, max-age=3600"
+
+[[headers]]
+  for = "/sitemap.xml"
+  [headers.values]
+    Content-Type = "application/xml; charset=utf-8"
+    Cache-Control = "public, max-age=3600"
