@@ -13,7 +13,7 @@ on:
 
 env:
   # Set your Netlify site URL here (without https://)
-  NETLIFY_SITE: YOUR_NETLIFY_SITE.netlify.app
+  NETLIFY_SITE: bejewelled-salamander-08452f.netlify.app
   MAX_RETRIES: 3
   RETRY_DELAY: 30
 
@@ -47,7 +47,7 @@ jobs:
           echo "üìä Status: $HTTP_CODE | Time: ${TIME_TAKEN}s"
           
           if [ "$HTTP_CODE" = "200" ]; then
-            echo "‚úÖ Success! Response: $BODY"
+            echo "‚ú?Success! Response: $BODY"
             SUCCESS=true
             
             # Parse JSON response if possible
@@ -56,11 +56,11 @@ jobs:
             fi
             break
           else
-            echo "‚ùå Failed with status $HTTP_CODE"
+            echo "‚ù?Failed with status $HTTP_CODE"
             echo "Response: $BODY"
             
             if [ $i -lt ${{ env.MAX_RETRIES }} ]; then
-              echo "‚è≥ Waiting ${{ env.RETRY_DELAY }} seconds before retry..."
+              echo "‚è?Waiting ${{ env.RETRY_DELAY }} seconds before retry..."
               sleep ${{ env.RETRY_DELAY }}
             fi
           fi

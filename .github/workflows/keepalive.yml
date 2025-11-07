@@ -15,8 +15,8 @@ jobs:
       run: |
         echo "Pinging keepalive endpoint at $(date)"
         
-        # Replace YOUR_NETLIFY_SITE with your actual Netlify site URL
-        KEEPALIVE_URL="https://YOUR_NETLIFY_SITE.netlify.app/.netlify/functions/keepalive"
+        # Replace bejewelled-salamander-08452f with your actual Netlify site URL
+        KEEPALIVE_URL="https://bejewelled-salamander-08452f.netlify.app/.netlify/functions/keepalive"
         
         # Make the request and capture response
         RESPONSE=$(curl -s -w "\n%{http_code}" "$KEEPALIVE_URL" || echo "curl_failed")
@@ -28,9 +28,9 @@ jobs:
         
         # Check if the request was successful
         if [ "$HTTP_CODE" = "200" ]; then
-          echo "‚úÖ Keepalive successful"
+          echo "‚ú?Keepalive successful"
         else
-          echo "‚ùå Keepalive failed with status $HTTP_CODE"
+          echo "‚ù?Keepalive failed with status $HTTP_CODE"
           echo "Response: $BODY"
           # Don't fail the workflow for keepalive failures - just log them
         fi
